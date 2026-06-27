@@ -1,0 +1,4 @@
+# Local development environment variables
+# Copy this file to .dev.vars and fill in the values
+
+ADMIN_KEY=your-admin-key-min-12-chars
