@@ -3,7 +3,6 @@ let selectedKey;
 let chart;
 let currentTab = "activity";
 let corsSettings = null;
-let filteringSettings = null;
 let hasGeoSource = false;
 let demoMode = false;
 
@@ -144,10 +143,6 @@ async function init() {
 
   api("GET", "/settings/cors").then((res) => {
     corsSettings = res?.error ? null : res;
-  });
-
-  api("GET", "/settings/filtering").then((res) => {
-    filteringSettings = res?.error ? null : res;
   });
 
   loadKeys();
@@ -603,51 +598,8 @@ function renderKeyDetail() {
             </div>
           </div>
 
-          <hr class="settings-divider">
-
-          <h4 class="config-subsection-title">请求过滤</h4>
-          <p class="headers-description" style="margin:-4px 0 8px">覆盖此密钥的全局过滤设置。取消勾选以使用全局默认值。</p>
-          <div class="switch-field">
-            <label class="switch">
-              <input type="checkbox" id="cfgBlockNonBrowserUA" ${key.config.blockNonBrowserUA ? "checked" : ""}>
-              <span class="switch-track"></span>
-            </label>
-            <label for="cfgBlockNonBrowserUA" class="switch-label">
-              阻止非浏览器用户代理
-              <span class="hint">阻止来自机器人、脚本和其他非浏览器客户端的请求（例如 python-requests、curl）。</span>
-            </label>
-          </div>
-          <div class="switch-field">
-            <label class="switch">
-              <input type="checkbox" id="cfgRequiredHeadersEnabled" ${key.config.requiredHeaders?.length ? "checked" : ""}>
-              <span class="switch-track"></span>
-            </label>
-            <label for="cfgRequiredHeadersEnabled" class="switch-label">
-              要求浏览器标头
-              <span class="hint">阻止缺少常见浏览器标头的请求。</span>
-            </label>
-          </div>
-          <div id="keyRequiredHeadersPanel" style="display:${key.config.requiredHeaders?.length ? "block" : "none"}">
-            <div class="header-checks">
-              ${["accept-encoding", "accept-language", "cache-control", "referer", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform"].map((h) => `<label class="header-check-label"><input type="checkbox" class="key-required-header-check" value="${h}" ${(key.config.requiredHeaders || []).includes(h) ? "checked" : ""}> <code>${escapeHtml(h)}</code></label>`).join("")}
-            </div>
-          </div>
-
           <div class="config-save-row">
             <button class="save-btn" id="saveSecurityConfigBtn" disabled>保存</button>
-          </div>
-        </div>
-
-        <div class="config-section-header">
-          <h3 class="config-section-title">阻止规则</h3>
-          <button class="add-block-rule-btn" id="addBlockRuleBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-            Add rule
-          </button>
-        </div>
-        <div class="config-card">
-          <div id="blockedIpsList" class="blocked-ips-list">
-            <div class="blocked-ips-loading"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></div>
           </div>
         </div>
 
@@ -699,7 +651,6 @@ function renderKeyDetail() {
           c.classList.remove("active");
         }
       });
-      if (currentTab === "configuration") loadBlockedIps();
       if (currentTab === "integration") {
         const t = document.getElementById("integrationTab");
         if (t) wireIntegrationCopy(t);
@@ -740,7 +691,6 @@ function renderKeyDetail() {
 
   loadGeoStats();
 
-  if (currentTab === "configuration") loadBlockedIps();
 
   function getKeyCorsEntries() {
     return [...document.querySelectorAll("#keyCorsOriginsList .key-cors-origin-input")]
@@ -786,14 +736,8 @@ function renderKeyDetail() {
     const corsEnabled = document.getElementById("cfgCorsEnabled").checked;
     const keyCorsOrigins = corsEnabled ? getKeyCorsEntries() : [];
     const keyCorsOriginsVal = keyCorsOrigins.length ? keyCorsOrigins : null;
-    const blockNonBrowserUA = document.getElementById("cfgBlockNonBrowserUA").checked;
-    const reqHeadersEnabled = document.getElementById("cfgRequiredHeadersEnabled").checked;
-    const requiredHeaders = reqHeadersEnabled ? getKeyRequiredHeaders() : [];
-    const requiredHeadersVal = requiredHeaders.length ? requiredHeaders : null;
     const dirty =
-      !corsArraysEqual(keyCorsOriginsVal, key.config.corsOrigins ?? null) ||
-      blockNonBrowserUA !== (key.config.blockNonBrowserUA ?? false) ||
-      !corsArraysEqual(requiredHeadersVal, key.config.requiredHeaders ?? null);
+      !corsArraysEqual(keyCorsOriginsVal, key.config.corsOrigins ?? null);
     document.getElementById("saveSecurityConfigBtn").disabled = !dirty;
   }
 
@@ -935,7 +879,6 @@ function renderKeyDetail() {
   document.getElementById("saveSecurityConfigBtn")?.addEventListener("click", saveSecurityConfig);
   document.getElementById("rotateSecretBtn")?.addEventListener("click", rotateSecret);
   document.getElementById("deleteKeyBtn")?.addEventListener("click", deleteKey);
-  document.getElementById("addBlockRuleBtn")?.addEventListener("click", openAddBlockRuleModal);
 }
 
 async function loadChartData(duration) {
@@ -2156,142 +2099,6 @@ function renderLocationPanel(el, countries, total) {
   }
 }
 
-async function loadBlockedIps() {
-  const container = document.getElementById("blockedIpsList");
-  if (!container) return;
-  container.innerHTML =
-    '<div class="blocked-ips-loading"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></div>';
-
-  const data = await api("GET", `/keys/${selectedKey.siteKey}/blocked-ips`);
-
-  if (!Array.isArray(data) || data.length === 0) {
-    container.innerHTML = '<div class="blocked-ips-empty">暂无阻止规则</div>';
-    return;
-  }
-
-  const typeLabels = { ip: "IP", cidr: "Range", asn: "ASN", country: "Country" };
-  const typeColors = { ip: "", cidr: "blue", asn: "purple", country: "blue" };
-
-  container.innerHTML = data
-    .map((b) => {
-      const type = b.type || "ip";
-      const label = typeLabels[type] || type;
-      const colorClass = typeColors[type] || "";
-      const displayValue =
-        type === "country"
-          ? `${countryFlags(b.ip)} ${countryNames[b.ip] || b.ip}`
-          : escapeHtml(b.ip);
-      return `<div class="blocked-ip-row">
-      <div class="blocked-ip-info">
-        <span class="blocked-ip-addr">${type !== "ip" ? `<span class="block-type-badge ${colorClass}">${label}</span>` : ""}${displayValue}</span>
-        <span class="blocked-ip-meta">${b.permanent ? "永久" : `过期时间 ${formatDate(b.expires)}`}</span>
-      </div>
-      <button class="blocked-ip-unblock" data-type="${type}" data-value="${escapeHtml(b.ip)}">移除</button>
-    </div>`;
-    })
-    .join("");
-
-  container.querySelectorAll(".blocked-ip-unblock").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      await api("POST", `/keys/${selectedKey.siteKey}/unblock-ip`, {
-        type: btn.dataset.type,
-        value: btn.dataset.value,
-      });
-      loadBlockedIps();
-    });
-  });
-}
-
-function openAddBlockRuleModal() {
-  const modal = createModal(
-    "添加阻止规则",
-    `
-    <div class="modal-body">
-      <div class="modal-field">
-        <label>类型</label>
-        <select id="blockRuleType">
-          <option value="ip">IP 地址</option>
-          <option value="cidr">IP 范围 (CIDR)</option>
-          <option value="asn">ASN</option>
-          <option value="country">国家</option>
-        </select>
-      </div>
-      <div class="modal-field" id="blockRuleValueField">
-        <label id="blockRuleValueLabel">IP 地址</label>
-        <input type="text" id="blockRuleValue" placeholder="e.g. 1.2.3.4">
-      </div>
-      <div class="modal-field" id="blockRuleCountryField" style="display:none">
-        <label>国家代码</label>
-        <select id="blockRuleCountry">
-          <option value="">Select country...</option>
-          ${Object.entries(countryNames)
-            .sort((a, b) => a[1].localeCompare(b[1]))
-            .map(
-              ([code, name]) =>
-                `<option value="${code}">${countryFlagEmoji(code)} ${escapeHtml(name)}</option>`,
-            )
-            .join("")}
-        </select>
-      </div>
-      <div class="modal-field">
-        <label>Duration</label>
-        <select id="blockRuleDuration">
-          <option value="0">永久</option>
-          <option value="3600">1 hour</option>
-          <option value="86400">24 hours</option>
-          <option value="604800">7 days</option>
-          <option value="2592000">30 days</option>
-        </select>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="modal-btn secondary" id="blockRuleCancelBtn">取消</button>
-      <button class="modal-btn danger" id="blockRuleSubmitBtn">Block</button>
-    </div>`,
-  );
-
-  const typeSelect = modal.querySelector("#blockRuleType");
-  const valueField = modal.querySelector("#blockRuleValueField");
-  const countryField = modal.querySelector("#blockRuleCountryField");
-  const valueLabel = modal.querySelector("#blockRuleValueLabel");
-  const valueInput = modal.querySelector("#blockRuleValue");
-
-  const placeholders = { ip: "e.g. 1.2.3.4", cidr: "e.g. 10.0.0.0/8", asn: "e.g. AS15169" };
-  const labels = { ip: "IP 地址", cidr: "IP 范围 (CIDR)", asn: "ASN number or name" };
-
-  typeSelect.addEventListener("change", () => {
-    const t = typeSelect.value;
-    if (t === "country") {
-      valueField.style.display = "none";
-      countryField.style.display = "";
-    } else {
-      valueField.style.display = "";
-      countryField.style.display = "none";
-      valueLabel.textContent = labels[t] || "Value";
-      valueInput.placeholder = placeholders[t] || "";
-    }
-  });
-
-  modal.querySelector("#blockRuleCancelBtn").addEventListener("click", closeModal);
-  modal.querySelector("#blockRuleSubmitBtn").addEventListener("click", async () => {
-    const type = typeSelect.value;
-    let value;
-    if (type === "country") {
-      value = modal.querySelector("#blockRuleCountry").value;
-    } else {
-      value = valueInput.value.trim();
-    }
-    if (!value) return;
-
-    modal.querySelector("#blockRuleSubmitBtn").disabled = true;
-    const duration = parseInt(modal.querySelector("#blockRuleDuration").value);
-    await api("POST", `/keys/${selectedKey.siteKey}/block-ip`, { type, value, duration });
-    closeModal();
-    loadBlockedIps();
-  });
-}
-
 async function saveMainConfig() {
   const btn = document.getElementById("saveMainConfigBtn");
   btn.disabled = true;
@@ -2376,27 +2183,15 @@ async function saveSecurityConfig() {
         .filter(Boolean)
     : [];
   const corsOrigins = keyCorsEntries.length ? keyCorsEntries : null;
-  const blockNonBrowserUA = document.getElementById("cfgBlockNonBrowserUA").checked;
-  const reqHeadersEnabled = document.getElementById("cfgRequiredHeadersEnabled").checked;
-  const requiredHeaders = reqHeadersEnabled
-    ? [
-        ...document.querySelectorAll("#keyRequiredHeadersPanel .key-required-header-check:checked"),
-      ].map((c) => c.value)
-    : [];
-  const requiredHeadersVal = requiredHeaders.length ? requiredHeaders : null;
 
   const res = await api("PUT", `/keys/${selectedKey.siteKey}/config`, {
     corsOrigins,
-    blockNonBrowserUA,
-    requiredHeaders: requiredHeadersVal,
   });
 
   if (res.success) {
     selectedKey.config = {
       ...selectedKey.config,
       corsOrigins,
-      blockNonBrowserUA,
-      requiredHeaders: requiredHeadersVal,
     };
   } else {
     showModal("错误", '<div class="modal-body"><p>保存安全设置失败。</p></div>');
@@ -2665,8 +2460,6 @@ function openCreateKeyModal(prefill = "") {
 async function openSettings() {
   const cs = corsSettings || { origins: null };
   const corsOriginsList = cs.origins || [];
-  const fl = filteringSettings || { blockNonBrowserUA: false, requiredHeaders: [] };
-  const globalRequiredHeaders = fl.requiredHeaders || [];
   const modal = createModal(
     "设置",
     `
@@ -2696,39 +2489,6 @@ async function openSettings() {
         </div>
         <div class="config-save-row">
           <button class="save-btn" id="saveCorsBtn" disabled>保存</button>
-        </div>
-
-        <hr class="settings-divider">
-
-        <h4 class="settings-group-title">请求过滤</h4>
-        <p class="headers-description">阻止不像是来自真实浏览器的请求。单个密钥可以覆盖这些默认值。</p>
-        <div class="switch-field">
-          <label class="switch">
-            <input type="checkbox" id="cfgGlobalBlockNonBrowserUA" ${fl.blockNonBrowserUA ? "checked" : ""}>
-            <span class="switch-track"></span>
-          </label>
-          <label for="cfgGlobalBlockNonBrowserUA" class="switch-label">
-            阻止非浏览器用户代理
-            <span class="hint">阻止来自机器人、脚本和其他非浏览器客户端的请求（例如 python-requests、curl）。</span>
-          </label>
-        </div>
-        <div class="switch-field">
-          <label class="switch">
-            <input type="checkbox" id="cfgGlobalRequiredHeadersEnabled" ${globalRequiredHeaders.length ? "checked" : ""}>
-            <span class="switch-track"></span>
-          </label>
-          <label for="cfgGlobalRequiredHeadersEnabled" class="switch-label">
-            要求浏览器标头
-            <span class="hint">阻止缺少常见浏览器标头的请求。</span>
-          </label>
-        </div>
-        <div id="globalRequiredHeadersPanel" style="display:${globalRequiredHeaders.length ? "block" : "none"}">
-          <div class="header-checks">
-            ${["accept-encoding", "accept-language", "cache-control", "referer", "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform"].map((h) => `<label class="header-check-label"><input type="checkbox" class="global-required-header-check" value="${h}" ${globalRequiredHeaders.includes(h) ? "checked" : ""}> <code>${escapeHtml(h)}</code></label>`).join("")}
-          </div>
-        </div>
-        <div class="config-save-row">
-          <button class="save-btn" id="saveFilteringBtn" disabled>保存</button>
         </div>
       </div>
       <div class="settings-section" id="apikeysSection">
@@ -2879,46 +2639,6 @@ async function openSettings() {
       ),
     ].map((c) => c.value);
   }
-
-  function checkFilteringDirty() {
-    const blockUA = document.getElementById("cfgGlobalBlockNonBrowserUA").checked;
-    const reqEnabled = document.getElementById("cfgGlobalRequiredHeadersEnabled").checked;
-    const reqHeaders = reqEnabled ? getGlobalRequiredHeaders() : [];
-    const dirty =
-      blockUA !== fl.blockNonBrowserUA ||
-      JSON.stringify(reqHeaders) !== JSON.stringify(globalRequiredHeaders);
-    document.getElementById("saveFilteringBtn").disabled = !dirty;
-  }
-
-  document
-    .getElementById("cfgGlobalBlockNonBrowserUA")
-    ?.addEventListener("change", checkFilteringDirty);
-  document.getElementById("cfgGlobalRequiredHeadersEnabled")?.addEventListener("change", (e) => {
-    document.getElementById("globalRequiredHeadersPanel").style.display = e.target.checked
-      ? "block"
-      : "none";
-    checkFilteringDirty();
-  });
-  document.querySelectorAll(".global-required-header-check").forEach((cb) => {
-    cb.addEventListener("change", checkFilteringDirty);
-  });
-
-  document.getElementById("saveFilteringBtn")?.addEventListener("click", async () => {
-    const btn = document.getElementById("saveFilteringBtn");
-    btn.disabled = true;
-    const blockNonBrowserUA = document.getElementById("cfgGlobalBlockNonBrowserUA").checked;
-    const reqEnabled = document.getElementById("cfgGlobalRequiredHeadersEnabled").checked;
-    const requiredHeaders = reqEnabled ? getGlobalRequiredHeaders() : [];
-    const res = await api("PUT", "/settings/filtering", { blockNonBrowserUA, requiredHeaders });
-    if (res.success) {
-      filteringSettings = { blockNonBrowserUA, requiredHeaders };
-      fl.blockNonBrowserUA = blockNonBrowserUA;
-      globalRequiredHeaders.length = 0;
-      globalRequiredHeaders.push(...requiredHeaders);
-    } else {
-      btn.disabled = false;
-    }
-  });
 
   loadIPDBSettings();
 

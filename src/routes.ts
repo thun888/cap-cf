@@ -20,9 +20,6 @@ import {
   deleteApiKey,
   getSetting,
   setSetting,
-  getBlockedIps,
-  blockIp,
-  unblockIp,
   getMetrics,
   incrementMetric,
 } from './db';
@@ -244,8 +241,6 @@ serverRoutes.put('/keys/:siteKey/config', async (c) => {
     obfuscationLevel: body.obfuscationLevel ?? key.config.obfuscationLevel,
     blockAutomatedBrowsers: body.blockAutomatedBrowsers ?? key.config.blockAutomatedBrowsers,
     corsOrigins: body.corsOrigins !== undefined ? body.corsOrigins : key.config.corsOrigins,
-    blockNonBrowserUA: body.blockNonBrowserUA !== undefined ? body.blockNonBrowserUA : key.config.blockNonBrowserUA,
-    requiredHeaders: body.requiredHeaders !== undefined ? body.requiredHeaders : key.config.requiredHeaders,
     rsw: body.rsw ?? key.config.rsw,
     rswT: body.rswT ?? key.config.rswT,
   };
@@ -284,63 +279,6 @@ serverRoutes.post('/keys/:siteKey/rotate-secret', async (c) => {
   await updateKeySecretHash(c.env.DB, siteKey, secretHash);
 
   return c.json({ secretKey: newSecretKey });
-});
-
-// GET /server/keys/:siteKey/blocked-ips - List blocked IPs
-serverRoutes.get('/keys/:siteKey/blocked-ips', async (c) => {
-  const siteKey = c.req.param('siteKey');
-  const blocked = await getBlockedIps(c.env.DB, siteKey);
-  return c.json(blocked);
-});
-
-// POST /server/keys/:siteKey/block-ip - Block IP
-serverRoutes.post('/keys/:siteKey/block-ip', async (c) => {
-  const siteKey = c.req.param('siteKey');
-  const body = await c.req.json();
-
-  const exists = await keyExists(c.env.DB, siteKey);
-  if (!exists) {
-    return c.json({ success: false, error: 'Key not found' }, 404);
-  }
-
-  const type = body.type || 'ip';
-  let key: string;
-  if (type === 'ip') key = body.ip || body.value;
-  else if (type === 'cidr') key = `cidr:${body.value}`;
-  else if (type === 'asn') key = `asn:${body.value}`;
-  else if (type === 'country') key = `country:${body.value}`;
-  else return c.json({ success: false, error: 'Invalid block type' }, 400);
-
-  if (!key) {
-    return c.json({ success: false, error: 'Missing value' }, 400);
-  }
-
-  const duration = body.duration || 0;
-  await blockIp(c.env.DB, siteKey, key, duration);
-
-  return c.json({ success: true });
-});
-
-// POST /server/keys/:siteKey/unblock-ip - Unblock IP
-serverRoutes.post('/keys/:siteKey/unblock-ip', async (c) => {
-  const siteKey = c.req.param('siteKey');
-  const body = await c.req.json();
-
-  const type = body.type || 'ip';
-  let key: string;
-  if (type === 'ip') key = body.ip || body.value;
-  else if (type === 'cidr') key = `cidr:${body.value}`;
-  else if (type === 'asn') key = `asn:${body.value}`;
-  else if (type === 'country') key = `country:${body.value}`;
-  else key = body.ip;
-
-  if (!key) {
-    return c.json({ success: false, error: 'Missing value' }, 400);
-  }
-
-  await unblockIp(c.env.DB, siteKey, key);
-
-  return c.json({ success: true });
 });
 
 // GET /server/keys/:siteKey/geo-stats - Geo statistics
@@ -460,28 +398,6 @@ serverRoutes.post('/settings/rsw/ensure', async (c) => {
     console.error('[cap] RSW keypair generation failed:', e);
     return c.json({ success: false, error: 'Generation failed' }, 500);
   }
-});
-
-// GET /server/settings/filtering - Get filtering settings
-serverRoutes.get('/settings/filtering', async (c) => {
-  const raw = await getSetting(c.env.DB, 'filtering');
-  if (!raw) return c.json({ blockNonBrowserUA: false, requiredHeaders: [] });
-  try {
-    return c.json(JSON.parse(raw));
-  } catch {
-    return c.json({ blockNonBrowserUA: false, requiredHeaders: [] });
-  }
-});
-
-// PUT /server/settings/filtering - Update filtering settings
-serverRoutes.put('/settings/filtering', async (c) => {
-  const body = await c.req.json();
-  const settings = {
-    blockNonBrowserUA: body.blockNonBrowserUA ?? false,
-    requiredHeaders: body.requiredHeaders ?? [],
-  };
-  await setSetting(c.env.DB, 'filtering', JSON.stringify(settings));
-  return c.json({ success: true });
 });
 
 // GET /server/about - Get server info

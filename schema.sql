@@ -31,17 +31,8 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
--- Blocked IPs table
-CREATE TABLE IF NOT EXISTS blocked_ips (
-  site_key TEXT NOT NULL,
-  block_key TEXT NOT NULL,
-  expires_at INTEGER NOT NULL DEFAULT 0, -- 0 means permanent
-  PRIMARY KEY (site_key, block_key)
-);
-
 -- Index for cleanup
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-CREATE INDEX IF NOT EXISTS idx_blocked_ips_expires ON blocked_ips(expires_at);
 
 -- Cache table (used when CACHE_BACKEND=d1)
 CREATE TABLE IF NOT EXISTS cache (

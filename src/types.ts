@@ -9,6 +9,9 @@ export interface Env {
   // Environment Variables
   ADMIN_KEY: string;
   CACHE_BACKEND?: 'kv' | 'd1';  // Cache backend selection, default: d1
+  ENABLE_ASSETS_SERVER?: string;
+  WIDGET_VERSION?: string;
+  WASM_VERSION?: string;
 }
 
 export interface KeyConfig {
@@ -21,8 +24,6 @@ export interface KeyConfig {
   rsw: boolean;
   rswT: number;
   corsOrigins?: string[];
-  blockNonBrowserUA?: boolean;
-  requiredHeaders?: string[];
 }
 
 export interface KeyData {
@@ -41,13 +42,6 @@ export interface ApiKeyData {
   id: string;
   name: string;
   createdAt: number;
-}
-
-export interface BlockedIpData {
-  ip: string;
-  type: 'ip' | 'cidr' | 'asn' | 'country';
-  permanent: boolean;
-  expires: number | null;
 }
 
 export interface MetricsData {

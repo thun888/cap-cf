@@ -72,7 +72,6 @@ export async function updateKeySecretHash(db: D1Database, siteKey: string, secre
 
 export async function deleteKey(db: D1Database, siteKey: string) {
   await db.prepare('DELETE FROM keys WHERE site_key = ?').bind(siteKey).run();
-  await db.prepare('DELETE FROM blocked_ips WHERE site_key = ?').bind(siteKey).run();
 }
 
 export async function keyExists(db: D1Database, siteKey: string) {
@@ -173,76 +172,6 @@ export async function getSetting(db: D1Database, key: string) {
 
 export async function setSetting(db: D1Database, key: string, value: string) {
   await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind(key, value).run();
-}
-
-// Blocked IPs
-export async function getBlockedIps(db: D1Database, siteKey: string) {
-  const now = Math.floor(Date.now() / 1000);
-  const { results } = await db
-    .prepare('SELECT block_key, expires_at FROM blocked_ips WHERE site_key = ?')
-    .bind(siteKey)
-    .all();
-
-  // Clean expired
-  await db
-    .prepare('DELETE FROM blocked_ips WHERE site_key = ? AND expires_at != 0 AND expires_at <= ?')
-    .bind(siteKey, now)
-    .run();
-
-  return results
-    .filter((row) => row.expires_at === 0 || (row.expires_at as number) > now)
-    .map((row) => {
-      const key = row.block_key as string;
-      let type: 'ip' | 'cidr' | 'asn' | 'country' = 'ip';
-      let value = key;
-
-      if (key.startsWith('cidr:')) {
-        type = 'cidr';
-        value = key.slice(5);
-      } else if (key.startsWith('asn:')) {
-        type = 'asn';
-        value = key.slice(4);
-      } else if (key.startsWith('country:')) {
-        type = 'country';
-        value = key.slice(8);
-      }
-
-      const permanent = row.expires_at === 0;
-      return {
-        ip: value,
-        type,
-        permanent,
-        expires: permanent ? null : (row.expires_at as number) * 1000,
-      };
-    });
-}
-
-export async function blockIp(db: D1Database, siteKey: string, blockKey: string, durationSeconds: number) {
-  const expiresAt = durationSeconds === 0 ? 0 : Math.floor(Date.now() / 1000) + durationSeconds;
-  await db
-    .prepare('INSERT OR REPLACE INTO blocked_ips (site_key, block_key, expires_at) VALUES (?, ?, ?)')
-    .bind(siteKey, blockKey, expiresAt)
-    .run();
-}
-
-export async function unblockIp(db: D1Database, siteKey: string, blockKey: string) {
-  await db
-    .prepare('DELETE FROM blocked_ips WHERE site_key = ? AND block_key = ?')
-    .bind(siteKey, blockKey)
-    .run();
-}
-
-export async function isIpBlocked(db: D1Database, siteKey: string, ip: string): Promise<boolean> {
-  const now = Math.floor(Date.now() / 1000);
-
-  // Check exact IP match
-  const exact = await db
-    .prepare('SELECT 1 FROM blocked_ips WHERE site_key = ? AND block_key = ? AND (expires_at = 0 OR expires_at > ?)')
-    .bind(siteKey, ip, now)
-    .first();
-  if (exact) return true;
-
-  return false;
 }
 
 // Cache-based operations (metrics, tokens, nonces)

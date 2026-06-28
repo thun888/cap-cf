@@ -10,6 +10,7 @@ import { cors } from 'hono/cors';
 import type { Env } from './types';
 import { serverRoutes, challengeRoutes, siteverifyRoutes, authRoutes } from './routes';
 import { loadRswKeypair } from './rsw-store';
+import { handleAsset } from './assets';
 
 // Startup initialization — runs once at cold start
 let rswInitPromise: Promise<void> | null = null;
@@ -52,6 +53,14 @@ app.use('*', async (c, next) => {
 app.route('/auth', authRoutes);
 app.route('/server', serverRoutes);
 app.route('/siteverify', siteverifyRoutes);
+
+// Assets proxy
+app.get('/assets/:filename', async (c) => {
+  const env = c.env as unknown as Env;
+  const result = await handleAsset(c.req.raw, env, c.executionCtx as any, c.req.param('filename'));
+  if (!result) return c.notFound();
+  return result;
+});
 
 // Challenge routes (public)
 app.route('/', challengeRoutes);

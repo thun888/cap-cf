@@ -29,6 +29,9 @@
   ],
   "vars": {
     "ADMIN_KEY": "",
-    "CACHE_BACKEND": "d1"
+    "CACHE_BACKEND": "d1",
+    "ENABLE_ASSETS_SERVER": "",
+    "WIDGET_VERSION": "3",
+    "WASM_VERSION": "0.1"
   }
 }
