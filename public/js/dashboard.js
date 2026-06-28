@@ -41,7 +41,7 @@ const url = (p) =>
 const api = async (method, path, body) => {
   try {
     const auth = JSON.parse(localStorage.getItem("cap_auth"));
-    if (!auth && !demoMode) throw new Error("Not authenticated");
+    if (!auth && !demoMode) throw new Error("未认证");
     const opts = { method, headers: {} };
     if (auth) {
       opts.headers.Authorization = `Bearer ${btoa(JSON.stringify({ token: auth.token, hash: auth.hash }))}`;
@@ -68,20 +68,20 @@ const formatRelative = (date) => {
   const past = diff < 0;
   const d = Math.abs(diff);
   const ms = {
-    year: 365 * 24 * 60 * 60 * 1000,
-    month: 30 * 24 * 60 * 60 * 1000,
-    week: 7 * 24 * 60 * 60 * 1000,
-    day: 24 * 60 * 60 * 1000,
-    hour: 60 * 60 * 1000,
-    minute: 60 * 1000,
+    "年": 365 * 24 * 60 * 60 * 1000,
+    "个月": 30 * 24 * 60 * 60 * 1000,
+    "周": 7 * 24 * 60 * 60 * 1000,
+    "天": 24 * 60 * 60 * 1000,
+    "小时": 60 * 60 * 1000,
+    "分钟": 60 * 1000,
   };
   for (const [u, v] of Object.entries(ms)) {
     if (d >= v) {
       const val = Math.floor(d / v);
-      return past ? `${val} ${u}${val > 1 ? "s" : ""} ago` : `in ${val} ${u}${val > 1 ? "s" : ""}`;
+      return past ? `${val} ${u}前` : `${val} ${u}后`;
     }
   }
-  return past ? "just now" : "in a moment";
+  return past ? "刚刚" : "片刻之后";
 };
 
 const formatDate = (ts) => {
@@ -162,7 +162,7 @@ async function loadKeys() {
     return;
   }
   if (keys?.error) {
-    keysList.innerHTML = '<div class="keys-empty"><p>Error loading keys</p></div>';
+    keysList.innerHTML = '<div class="keys-empty"><p>加载密钥出错</p></div>';
     return;
   }
   renderKeysList();
@@ -173,7 +173,7 @@ function renderKeysList(filter = "") {
   if (filtered.length === 0) {
     keysList.innerHTML = `
       <div class="keys-empty">
-        <p>${filter ? "No matching keys" : "No keys yet!"}</p>
+        <p>${filter ? "无匹配的密钥" : "暂无密钥！"}</p>
       </div>`;
     return;
   }
@@ -190,7 +190,7 @@ function renderKeysList(filter = "") {
               ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>'
               : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>'
         }
-        ${formatCompact(key.solvesLast24h || 0)} recent solves
+        ${formatCompact(key.solvesLast24h || 0)} 次近期验证
       </div>
     </div>`,
     )
@@ -228,8 +228,8 @@ async function selectKey(siteKey) {
   const data = await api("GET", `/keys/${siteKey}`);
   if (data.error) {
     showModal(
-      "Error",
-      `<div class="modal-body"><p>Failed to load key: ${escapeHtml(data.error)}</p></div>`,
+      "错误",
+      `<div class="modal-body"><p>加载密钥失败：${escapeHtml(data.error)}</p></div>`,
     );
     return;
   }
@@ -288,7 +288,7 @@ function renderIntegrationTab(key) {
   const origin = location.origin;
   const endpoint = `${origin}/${sk}/`;
   const widget = `<scr` + `ipt src="https://cdn.jsdelivr.net/npm/@cap.js/widget"></scr` + `ipt>
-<!-- pin a version in production, e.g. @cap.js/widget@3 -->
+<!-- 生产环境建议固定版本，例如 @cap.js/widget@3 -->
 
 <cap-widget data-cap-api-endpoint="${endpoint}"></cap-widget>`;
   const nodeSnippet = `const res = await fetch("${origin}/siteverify", {
@@ -305,7 +305,7 @@ const { success } = await res.json();`;
 - Server URL: \`${origin}\`
 - API endpoint: \`${endpoint}\`
 
-## Step 1: Read the docs
+## Step 1: 阅读文档
 
 Fetch these first:
 - https://trycap.dev/llms.txt
@@ -326,7 +326,7 @@ Wait for nothing and proceed once the plan is written.
 - Remove the old library, scripts, env vars, and verification calls completely. No dead code.
 - Match the old solution's UX placement (same forms, same trigger points).
 - Preserve existing error handling and failure UX.
-- Update any tests, mocks, or fixtures that referenced the old CAPTCHA.
+- 更新 any tests, mocks, or fixtures that referenced the old CAPTCHA.
 
 ## Step 4: Implement
 
@@ -345,26 +345,26 @@ If anything fails and you are sure it's Cap's issue:
 3. Instruct the user to open an issue on GitHub: https://github.com/tiagozip/cap`;
   return `
     <div class="integration-layout">
-      <h3 class="config-section-title">Frontend</h3>
-      <p class="integration-hint">Check our <a href="https://trycap.dev/guide/widget.html#usage" style="color:var(--blue)" target="_blank">documentation</a> for more frameworks and details.</p>
+      <h3 class="config-section-title">前端</h3>
+      <p class="integration-hint">查看我们的 <a href="https://trycap.dev/guide/widget.html#usage" style="color:var(--blue)" target="_blank">文档</a> 了解更多框架和详情。</p>
       <div class="code-block" data-raw="${escapeHtml(widget)}">
-        <button class="code-copy">Copy</button>
+        <button class="code-copy">复制</button>
         <pre><code class="hl">${highlight(widget)}</code></pre>
       </div>
 
-      <h3 class="config-section-title" style="margin-top: 24px;">Server verification</h3>
+      <h3 class="config-section-title" style="margin-top: 24px;">服务端验证</h3>
       <div class="code-block" data-raw="${escapeHtml(nodeSnippet)}" style="margin-top: 12px;">
-        <button class="code-copy">Copy</button>
+        <button class="code-copy">复制</button>
         <pre><code class="hl">${highlight(nodeSnippet)}</code></pre>
       </div>
 
-      <h3 class="config-section-title" style="margin-top: 24px;">AI prompt</h3>
+      <h3 class="config-section-title" style="margin-top: 24px;">AI 提示</h3>
       <p class="integration-hint">Drop this into your AI assistant to have it implement Cap end-to-end.</p>
       <div class="code-block code-block-prompt" data-raw="${escapeHtml(aiPrompt)}">
         <pre><code>${escapeHtml(aiPrompt)}</code></pre>
         <button class="code-copy code-copy-large">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          <span class="code-copy-label">Copy prompt</span>
+          <span class="code-copy-label">复制提示</span>
         </button>
       </div>
     </div>
@@ -411,7 +411,7 @@ function renderKeyDetail() {
       </div>
       <button class="copy-site-key-btn" id="copyKeyBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        Copy site key
+        复制站点密钥
       </button>
     </div>
 
@@ -420,12 +420,12 @@ function renderKeyDetail() {
         <div class="activity-main">
           <div class="filters-row">
             <select class="time-select" id="timeSelect">
-              <option value="today" ${key.chartData?.duration === "today" ? "selected" : ""}>Today</option>
-              <option value="yesterday" ${key.chartData?.duration === "yesterday" ? "selected" : ""}>Yesterday</option>
-              <option value="last7days" ${key.chartData?.duration === "last7days" ? "selected" : ""}>Last 7 days</option>
-              <option value="last28days" ${key.chartData?.duration === "last28days" ? "selected" : ""}>Last 30 days</option>
-              <option value="last91days" ${key.chartData?.duration === "last91days" ? "selected" : ""}>Last 3 months</option>
-              <option value="alltime" ${key.chartData?.duration === "alltime" ? "selected" : ""}>All time</option>
+              <option value="today" ${key.chartData?.duration === "today" ? "selected" : ""}>今天</option>
+              <option value="yesterday" ${key.chartData?.duration === "yesterday" ? "selected" : ""}>昨天</option>
+              <option value="last7days" ${key.chartData?.duration === "last7days" ? "selected" : ""}>最近 7 天</option>
+              <option value="last28days" ${key.chartData?.duration === "last28days" ? "selected" : ""}>最近 30 天</option>
+              <option value="last91days" ${key.chartData?.duration === "last91days" ? "selected" : ""}>最近 3 个月</option>
+              <option value="alltime" ${key.chartData?.duration === "alltime" ? "selected" : ""}>全部</option>
             </select>
             <span class="date-range" id="dateRange">${getDateRange(key.chartData)}</span>
             <button class="refresh-btn" id="refreshBtn">
@@ -436,25 +436,25 @@ function renderKeyDetail() {
           <div class="stats-row">
             <div class="stat-item">
               <div class="stat-bar blue"></div>
-              <div class="stat-label">Challenges</div>
+              <div class="stat-label">挑战次数</div>
               <div class="stat-value" id="statChallenges">${formatCompact(s.challenges || 0)}</div>
               <div id="trendChallenges">${trendHtml(s.challenges, key.prevStats?.challenges)}</div>
             </div>
             <div class="stat-item">
               <div class="stat-bar green"></div>
-              <div class="stat-label">Verified</div>
+              <div class="stat-label">已验证</div>
               <div class="stat-value" id="statVerified">${formatCompact(s.verified || 0)}</div>
               <div id="trendVerified">${trendHtml(s.verified, key.prevStats?.verified)}</div>
             </div>
             <div class="stat-item">
               <div class="stat-bar red"></div>
-              <div class="stat-label">Failed</div>
+              <div class="stat-label">失败</div>
               <div class="stat-value" id="statFailed">${formatCompact(s.failed || 0)}</div>
               <div id="trendFailed">${trendHtml(s.failed, key.prevStats?.failed)}</div>
             </div>
             <div class="stat-item">
               <div class="stat-bar purple"></div>
-              <div class="stat-label">Avg. duration</div>
+              <div class="stat-label">平均耗时</div>
               <div class="stat-value" id="statLatency">${formatLatency(s.avgLatency || 0)}</div>
             </div>
           </div>
@@ -469,12 +469,12 @@ function renderKeyDetail() {
           <div class="insights-grid" id="insightsGrid">
             <div class="insight-panel" id="locationPanel">
               <div class="insight-panel-header">
-                <h3 class="insight-panel-title">Location</h3>
+                <h3 class="insight-panel-title">位置</h3>
                 <div class="insight-view-toggle" id="locationViewToggle">
-                  <button class="insight-toggle-btn ${!locationMapMode ? "active" : ""}" data-view="list" title="List view">
+                  <button class="insight-toggle-btn ${!locationMapMode ? "active" : ""}" data-view="list" title="列表视图">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
                   </button>
-                  <button class="insight-toggle-btn ${locationMapMode ? "active" : ""}" data-view="map" title="Map view">
+                  <button class="insight-toggle-btn ${locationMapMode ? "active" : ""}" data-view="map" title="地图视图">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                   </button>
                 </div>
@@ -485,13 +485,13 @@ function renderKeyDetail() {
             </div>
             <div class="insight-panel" id="networksPanel">
               <div class="insight-panel-header">
-                <h3 class="insight-panel-title">Networks</h3>
-                <button class="insight-search-btn" id="networksSearchBtn" title="Search networks">
+                <h3 class="insight-panel-title">网络</h3>
+                <button class="insight-search-btn" id="networksSearchBtn" title="搜索网络">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 </button>
               </div>
               <div class="insight-search-bar" id="networksSearchBar" style="display:none">
-                <input type="text" id="networksSearchInput" placeholder="Filter networks\u2026">
+                <input type="text" id="networksSearchInput" placeholder="过滤网络\u2026">
               </div>
               <div class="insight-panel-body" id="networksBody">
                 <div class="insight-loading"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></div>
@@ -499,7 +499,7 @@ function renderKeyDetail() {
             </div>
             <div class="insight-panel" id="platformPanel">
               <div class="insight-panel-header">
-                <h3 class="insight-panel-title">Platform</h3>
+                <h3 class="insight-panel-title">平台</h3>
               </div>
               <div class="insight-panel-body" id="platformBody">
                 <div class="insight-loading">${spinnerSvg}</div>
@@ -507,7 +507,7 @@ function renderKeyDetail() {
             </div>
             <div class="insight-panel" id="osPanel">
               <div class="insight-panel-header">
-                <h3 class="insight-panel-title">OS</h3>
+                <h3 class="insight-panel-title">操作系统</h3>
               </div>
               <div class="insight-panel-body" id="osBody">
                 <div class="insight-loading">${spinnerSvg}</div>
@@ -525,33 +525,33 @@ function renderKeyDetail() {
 
     <div class="tab-content ${currentTab === "configuration" ? "active" : ""}" id="configurationTab">
       <div class="config-panel">
-        <h3 class="config-section-title">Main</h3>
+        <h3 class="config-section-title">主要设置</h3>
         <div class="config-card">
           <div class="edit-field">
-            <label>Name</label>
+            <label>名称</label>
             <input type="text" id="cfgName" value="${escapeHtml(key.name)}">
           </div>
           <div class="edit-field" style="margin-top:8px">
-            <label>Challenge protocol</label>
+            <label>挑战协议</label>
             <select id="cfgChallengeProtocol">
               <option value="sha256-pow" ${!key.config.rsw ? "selected" : ""}>SHA-256</option>
-              <option value="rsw" ${key.config.rsw ? "selected" : ""}>RSW (experimental)</option>
+              <option value="rsw" ${key.config.rsw ? "selected" : ""}>RSW（实验性）</option>
             </select>
           </div>
           <div class="edit-row" id="shaPowFields" style="display:${key.config.rsw ? "none" : "flex"}">
             <div class="edit-field">
-              <label>Difficulty</label>
+              <label>难度</label>
               <input type="number" id="cfgDifficulty" value="${key.config.difficulty}" min="1" max="8">
             </div>
             <div class="edit-field">
-              <label>Challenge count</label>
+              <label>挑战次数</label>
               <input type="number" id="cfgChallengeCount" value="${key.config.challengeCount}" min="1" max="500">
             </div>
           </div>
           <div class="config-row" id="rswTField" style="display:${key.config.rsw ? "flex" : "none"}">
             <div class="range-field" style="flex:1">
               <label>RSW difficulty <span class="range-value" id="rswTHint">${(key.config?.rswT ?? 75000).toLocaleString()}</span></label>
-              <span class="range-hint">Higher difficulty means slower solve time</span>
+              <span class="range-hint">更高的难度意味着更长的解题时间</span>
               <input type="range" id="cfgRswT" min="10000" max="300000" step="5000" value="${key.config.rswT ?? 75000}">
             </div>
           </div>
@@ -561,7 +561,7 @@ function renderKeyDetail() {
               <input type="checkbox" id="cfgInstrumentation" ${key.config.instrumentation ? "checked" : ""}>
               <span class="switch-track"></span>
             </label>
-            <label for="cfgInstrumentation" class="switch-label">Enable instrumentation challenges</label>
+            <label for="cfgInstrumentation" class="switch-label">启用检测挑战</label>
           </div>
           <div class="switch-field" id="blockAutomatedBrowsersField" style="display:${key.config.instrumentation ? "flex" : "none"}">
             <label class="switch">
@@ -569,23 +569,23 @@ function renderKeyDetail() {
               <span class="switch-track"></span>
             </label>
             <label for="cfgBlockAutomatedBrowsers" class="switch-label">
-              Attempt to block headless browsers
-              <span class="hint">This may cause issues with testing or agent browsers and is not entirely foolproof.</span>
+              尝试阻止无头浏览器
+              <span class="hint">这可能导致测试或代理浏览器出现问题，且并非完全可靠。</span>
             </label>
           </div>
           <div class="config-row" id="obfuscationLevelField" style="display:${key.config.instrumentation ? "flex" : "none"}">
             <div class="range-field" style="flex:1">
-              <label>Obfuscation level <span class="range-value" id="obfuscationLevelHint">${key.config.obfuscationLevel ?? 5}</span></label>
-              <span class="range-hint">Higher obfuscation may result in higher CPU usage.</span>
+              <label>混淆级别 <span class="range-value" id="obfuscationLevelHint">${key.config.obfuscationLevel ?? 5}</span></label>
+              <span class="range-hint">更高的混淆级别可能导致更高的 CPU 使用率。</span>
               <input type="range" id="cfgObfuscationLevel" min="1" max="10" value="${key.config.obfuscationLevel ?? 5}">
             </div>
           </div>
           <div class="config-save-row">
-            <button class="save-btn" id="saveMainConfigBtn" disabled>Save</button>
+            <button class="save-btn" id="saveMainConfigBtn" disabled>保存</button>
           </div>
         </div>
 
-        <h3 class="config-section-title">Security</h3>
+        <h3 class="config-section-title">安全设置</h3>
         <div class="config-card">
 
           <h4 class="config-subsection-title">CORS</h4>
@@ -594,27 +594,27 @@ function renderKeyDetail() {
               <input type="checkbox" id="cfgCorsEnabled" ${key.config.corsOrigins?.length ? "checked" : ""}>
               <span class="switch-track"></span>
             </label>
-            <label for="cfgCorsEnabled" class="switch-label">Restrict allowed origins</label>
+            <label for="cfgCorsEnabled" class="switch-label">限制允许的来源</label>
           </div>
           <div id="keyCorsPanel" style="display:${key.config.corsOrigins?.length ? "block" : "none"}">
-            <p class="headers-description" style="margin:0 0 8px">Only these origins will be able to request challenges for this key.</p>
+            <p class="headers-description" style="margin:0 0 8px">仅这些来源可以为此密钥请求挑战。</p>
             <div id="keyCorsOriginsList" class="origin-list">
-              ${(key.config.corsOrigins || []).map((o) => `<div class="origin-entry"><input type="text" class="key-cors-origin-input" value="${escapeHtml(o)}" placeholder="Add an origin\u2026"><button class="origin-remove-btn" title="Remove">&times;</button></div>`).join("")}
+              ${(key.config.corsOrigins || []).map((o) => `<div class="origin-entry"><input type="text" class="key-cors-origin-input" value="${escapeHtml(o)}" placeholder="添加来源\u2026"><button class="origin-remove-btn" title="移除">&times;</button></div>`).join("")}
             </div>
           </div>
 
           <hr class="settings-divider">
 
-          <h4 class="config-subsection-title">Request filtering</h4>
-          <p class="headers-description" style="margin:-4px 0 8px">Override the global filtering for this key. Leave unchecked to use global defaults.</p>
+          <h4 class="config-subsection-title">请求过滤</h4>
+          <p class="headers-description" style="margin:-4px 0 8px">覆盖此密钥的全局过滤设置。取消勾选以使用全局默认值。</p>
           <div class="switch-field">
             <label class="switch">
               <input type="checkbox" id="cfgBlockNonBrowserUA" ${key.config.blockNonBrowserUA ? "checked" : ""}>
               <span class="switch-track"></span>
             </label>
             <label for="cfgBlockNonBrowserUA" class="switch-label">
-              Block non-browser user agents
-              <span class="hint">Blocks requests from bots, scripts, and other non-browser clients (e.g. python-requests, curl).</span>
+              阻止非浏览器用户代理
+              <span class="hint">阻止来自机器人、脚本和其他非浏览器客户端的请求（例如 python-requests、curl）。</span>
             </label>
           </div>
           <div class="switch-field">
@@ -623,8 +623,8 @@ function renderKeyDetail() {
               <span class="switch-track"></span>
             </label>
             <label for="cfgRequiredHeadersEnabled" class="switch-label">
-              Require browser headers
-              <span class="hint">Block requests missing common browser headers.</span>
+              要求浏览器标头
+              <span class="hint">阻止缺少常见浏览器标头的请求。</span>
             </label>
           </div>
           <div id="keyRequiredHeadersPanel" style="display:${key.config.requiredHeaders?.length ? "block" : "none"}">
@@ -634,12 +634,12 @@ function renderKeyDetail() {
           </div>
 
           <div class="config-save-row">
-            <button class="save-btn" id="saveSecurityConfigBtn" disabled>Save</button>
+            <button class="save-btn" id="saveSecurityConfigBtn" disabled>保存</button>
           </div>
         </div>
 
         <div class="config-section-header">
-          <h3 class="config-section-title">Block rules</h3>
+          <h3 class="config-section-title">阻止规则</h3>
           <button class="add-block-rule-btn" id="addBlockRuleBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
             Add rule
@@ -652,11 +652,11 @@ function renderKeyDetail() {
         </div>
 
         <div class="danger-zone">
-          <h3 class="config-section-title danger">Danger zone</h3>
+          <h3 class="config-section-title danger">危险区域</h3>
           <div class="danger-actions-col">
             <button class="danger-action-btn" id="rotateSecretBtn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0118.8-4.3M22 12.5a10 10 0 01-18.8 4.2"/></svg>
-              Reset site secret
+              重置站点密钥
             </button>
             <button class="danger-action-btn red" id="deleteKeyBtn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -714,15 +714,15 @@ function renderKeyDetail() {
       await navigator.clipboard.writeText(key.siteKey);
       const btn = document.getElementById("copyKeyBtn");
       btn.innerHTML =
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已复制！';
       setTimeout(() => {
         btn.innerHTML =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy site key';
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> 复制站点密钥';
       }, 2000);
     } catch {
       showModal(
-        "Site Key",
-        `<div class="modal-body"><div class="modal-field"><label>Site Key</label><input type="text" value="${key.siteKey}" readonly onclick="this.select()"></div></div>`,
+        "站点密钥",
+        `<div class="modal-body"><div class="modal-field"><label>站点密钥</label><input type="text" value="${key.siteKey}" readonly onclick="this.select()"></div></div>`,
       );
     }
   });
@@ -821,7 +821,7 @@ function renderKeyDetail() {
   function addKeyCorsRow(value = "") {
     const div = document.createElement("div");
     div.className = "origin-entry";
-    div.innerHTML = `<input type="text" class="key-cors-origin-input" value="${escapeHtml(value)}" placeholder="Add an origin\u2026"><button class="origin-remove-btn" title="Remove">&times;</button>`;
+    div.innerHTML = `<input type="text" class="key-cors-origin-input" value="${escapeHtml(value)}" placeholder="添加来源\u2026"><button class="origin-remove-btn" title="移除">&times;</button>`;
     const input = div.querySelector(".key-cors-origin-input");
     div.querySelector(".origin-remove-btn").addEventListener("click", () => {
       div.remove();
@@ -1057,9 +1057,9 @@ function renderChart(chartData) {
     data: {
       labels,
       datasets: [
-        mkDataset("Challenges", "challenges", "#89b4fa"),
-        mkDataset("Verified", "verified", "#a6e3a1"),
-        mkDataset("Failed", "failed", "#f38ba8"),
+        mkDataset("挑战次数", "challenges", "#89b4fa"),
+        mkDataset("已验证", "verified", "#a6e3a1"),
+        mkDataset("失败", "failed", "#f38ba8"),
       ],
     },
     options: {
@@ -1822,7 +1822,7 @@ async function loadGeoStats() {
   const netEl = document.getElementById("networksBody");
   if (netEl) {
     if (!data.asns || data.asns.length === 0) {
-      netEl.innerHTML = `<div class="insight-empty">${hasGeoSource ? "No network data yet." : "Configure a lookup source in IP data settings to store network data."}</div>`;
+      netEl.innerHTML = `<div class="insight-empty">${hasGeoSource ? "暂无网络数据。" : "在 IP 数据设置中配置查询来源以存储网络数据。"}</div>`;
     } else {
       const total = data.totalAsn || 1;
       const allAsns = data.asns;
@@ -2019,7 +2019,7 @@ const platformColors = {
 function renderPlatformDonut(el, items, total) {
   if (!el) return;
   if (!items || items.length === 0) {
-    el.innerHTML = '<div class="insight-empty">No platform data yet.</div>';
+    el.innerHTML = '<div class="insight-empty">暂无平台数据。</div>';
     return;
   }
   el.innerHTML = '<div class="donut-layout"><canvas id="platformDonut"></canvas><div class="donut-legend" id="platformLegend"></div></div>';
@@ -2076,7 +2076,7 @@ const osIcons = {
 function renderOsPanel(el, items, total) {
   if (!el) return;
   if (!items || items.length === 0) {
-    el.innerHTML = '<div class="insight-empty">No OS data yet.</div>';
+    el.innerHTML = '<div class="insight-empty">暂无操作系统数据。</div>';
     return;
   }
   const t = total || 1;
@@ -2100,7 +2100,7 @@ function renderOsPanel(el, items, total) {
 
 function renderLocationPanel(el, countries, total) {
   if (!countries || countries.length === 0) {
-    el.innerHTML = `<div class="insight-empty">${hasGeoSource ? "No location data yet." : "Configure a lookup source in IP data settings to store location data."}</div>`;
+    el.innerHTML = `<div class="insight-empty">${hasGeoSource ? "暂无位置数据。" : "在 IP 数据设置中配置查询来源以存储位置数据。"}</div>`;
     return;
   }
 
@@ -2114,7 +2114,7 @@ function renderLocationPanel(el, countries, total) {
           setupMapTooltip(canvas);
         })
         .catch(() => {
-          el.innerHTML = '<div class="insight-empty">Failed to load map data</div>';
+          el.innerHTML = '<div class="insight-empty">加载地图数据失败</div>';
         });
     }
   } else {
@@ -2165,7 +2165,7 @@ async function loadBlockedIps() {
   const data = await api("GET", `/keys/${selectedKey.siteKey}/blocked-ips`);
 
   if (!Array.isArray(data) || data.length === 0) {
-    container.innerHTML = '<div class="blocked-ips-empty">No block rules yet</div>';
+    container.innerHTML = '<div class="blocked-ips-empty">暂无阻止规则</div>';
     return;
   }
 
@@ -2184,9 +2184,9 @@ async function loadBlockedIps() {
       return `<div class="blocked-ip-row">
       <div class="blocked-ip-info">
         <span class="blocked-ip-addr">${type !== "ip" ? `<span class="block-type-badge ${colorClass}">${label}</span>` : ""}${displayValue}</span>
-        <span class="blocked-ip-meta">${b.permanent ? "Permanent" : `Expires ${formatDate(b.expires)}`}</span>
+        <span class="blocked-ip-meta">${b.permanent ? "永久" : `过期时间 ${formatDate(b.expires)}`}</span>
       </div>
-      <button class="blocked-ip-unblock" data-type="${type}" data-value="${escapeHtml(b.ip)}">Remove</button>
+      <button class="blocked-ip-unblock" data-type="${type}" data-value="${escapeHtml(b.ip)}">移除</button>
     </div>`;
     })
     .join("");
@@ -2205,24 +2205,24 @@ async function loadBlockedIps() {
 
 function openAddBlockRuleModal() {
   const modal = createModal(
-    "Add block rule",
+    "添加阻止规则",
     `
     <div class="modal-body">
       <div class="modal-field">
-        <label>Type</label>
+        <label>类型</label>
         <select id="blockRuleType">
-          <option value="ip">IP address</option>
-          <option value="cidr">IP range (CIDR)</option>
+          <option value="ip">IP 地址</option>
+          <option value="cidr">IP 范围 (CIDR)</option>
           <option value="asn">ASN</option>
-          <option value="country">Country</option>
+          <option value="country">国家</option>
         </select>
       </div>
       <div class="modal-field" id="blockRuleValueField">
-        <label id="blockRuleValueLabel">IP address</label>
+        <label id="blockRuleValueLabel">IP 地址</label>
         <input type="text" id="blockRuleValue" placeholder="e.g. 1.2.3.4">
       </div>
       <div class="modal-field" id="blockRuleCountryField" style="display:none">
-        <label>Country code</label>
+        <label>国家代码</label>
         <select id="blockRuleCountry">
           <option value="">Select country...</option>
           ${Object.entries(countryNames)
@@ -2237,7 +2237,7 @@ function openAddBlockRuleModal() {
       <div class="modal-field">
         <label>Duration</label>
         <select id="blockRuleDuration">
-          <option value="0">Permanent</option>
+          <option value="0">永久</option>
           <option value="3600">1 hour</option>
           <option value="86400">24 hours</option>
           <option value="604800">7 days</option>
@@ -2246,7 +2246,7 @@ function openAddBlockRuleModal() {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="modal-btn secondary" id="blockRuleCancelBtn">Cancel</button>
+      <button class="modal-btn secondary" id="blockRuleCancelBtn">取消</button>
       <button class="modal-btn danger" id="blockRuleSubmitBtn">Block</button>
     </div>`,
   );
@@ -2258,7 +2258,7 @@ function openAddBlockRuleModal() {
   const valueInput = modal.querySelector("#blockRuleValue");
 
   const placeholders = { ip: "e.g. 1.2.3.4", cidr: "e.g. 10.0.0.0/8", asn: "e.g. AS15169" };
-  const labels = { ip: "IP address", cidr: "IP range (CIDR)", asn: "ASN number or name" };
+  const labels = { ip: "IP 地址", cidr: "IP 范围 (CIDR)", asn: "ASN number or name" };
 
   typeSelect.addEventListener("change", () => {
     const t = typeSelect.value;
@@ -2318,14 +2318,14 @@ async function saveMainConfig() {
     const gen = await api("POST", "/settings/rsw/ensure");
     if (!gen?.exists) {
       showModal(
-        "Error",
-        '<div class="modal-body"><p>Failed to generate the RSW keypair. Try again in a moment.</p></div>',
+        "错误",
+        '<div class="modal-body"><p>生成 RSW 密钥对失败，请稍后再试。</p></div>',
       );
-      btn.innerHTML = "Save";
+      btn.innerHTML = "保存";
       btn.disabled = false;
       return;
     }
-    btn.innerHTML = "Save";
+    btn.innerHTML = "保存";
   }
 
   const res = await api("PUT", `/keys/${selectedKey.siteKey}/config`, {
@@ -2354,7 +2354,7 @@ async function saveMainConfig() {
     };
     renderKeysList(searchInput.value);
   } else {
-    showModal("Error", '<div class="modal-body"><p>Failed to save configuration.</p></div>');
+    showModal("错误", '<div class="modal-body"><p>Failed to save configuration.</p></div>');
     btn.disabled = false;
   }
 }
@@ -2399,7 +2399,7 @@ async function saveSecurityConfig() {
       requiredHeaders: requiredHeadersVal,
     };
   } else {
-    showModal("Error", '<div class="modal-body"><p>Failed to save security settings.</p></div>');
+    showModal("错误", '<div class="modal-body"><p>保存安全设置失败。</p></div>');
     btn.disabled = false;
   }
 }
@@ -2419,7 +2419,7 @@ function rotateSecret() {
           <p class="hint">Make sure to copy this \u2014 it won\u2019t be shown again.</p></div></div>`,
         );
       } else {
-        showModal("Error", '<div class="modal-body"><p>Failed to rotate secret key.</p></div>');
+        showModal("错误", '<div class="modal-body"><p>轮换密钥失败 key.</p></div>');
       }
     },
   );
@@ -2427,9 +2427,9 @@ function rotateSecret() {
 
 function deleteKey() {
   showConfirmModal(
-    "Delete Key?",
-    "This will permanently delete this key and all associated data. This cannot be undone.",
-    "Delete",
+    "删除密钥？",
+    "这将永久删除此密钥及其所有相关数据，且不可撤销。",
+    "删除",
     async () => {
       const res = await api("DELETE", `/keys/${selectedKey.siteKey}`);
       if (res.success) {
@@ -2438,7 +2438,7 @@ function deleteKey() {
         keyDetail.style.display = "none";
         await loadKeys();
       } else {
-        showModal("Error", '<div class="modal-body"><p>Failed to delete key.</p></div>');
+        showModal("错误", '<div class="modal-body"><p>删除密钥失败。</p></div>');
       }
     },
     true,
@@ -2486,19 +2486,19 @@ function showModal(title, content) {
   createModal(title, content);
 }
 
-function showConfirmModal(title, message, confirmText, onConfirm, isDanger = false) {
+function showConfirmModal(title, message, 确认Text, onConfirm, isDanger = false) {
   const modal = createModal(
     title,
     `
     <div class="modal-body"><p>${message}</p></div>
     <div class="modal-footer">
-      <button class="modal-btn secondary" id="cancelBtn">Cancel</button>
-      <button class="modal-btn ${isDanger ? "danger" : "primary"}" id="confirmBtn">${confirmText}</button>
+      <button class="modal-btn secondary" id="cancelBtn">取消</button>
+      <button class="modal-btn ${isDanger ? "danger" : "primary"}" id="确认Btn">${确认Text}</button>
     </div>`,
   );
   modal.querySelector("#cancelBtn").addEventListener("click", closeModal);
-  modal.querySelector("#confirmBtn").addEventListener("click", async () => {
-    modal.querySelector("#confirmBtn").disabled = true;
+  modal.querySelector("#确认Btn").addEventListener("click", async () => {
+    modal.querySelector("#确认Btn").disabled = true;
     closeModal();
     await onConfirm();
   });
@@ -2506,10 +2506,10 @@ function showConfirmModal(title, message, confirmText, onConfirm, isDanger = fal
 
 function openCreateKeyModal(prefill = "") {
   const modal = createModal(
-    "Create key",
+    "创建密钥",
     `
     <div class="modal-body">
-      <div class="modal-field"><label for="newKeyName">Key name</label>
+      <div class="modal-field"><label for="newKeyName">密钥名称</label>
       <input type="text" id="newKeyName" placeholder="${escapeHtml(prefill || "")}" value="${escapeHtml(prefill || "")}" autofocus></div>
       <div class="switch-field" style="margin-top:8px">
         <label class="switch">
@@ -2523,7 +2523,7 @@ function openCreateKeyModal(prefill = "") {
           <input type="checkbox" id="newKeyBlockBots">
           <span class="switch-track"></span>
         </label>
-        <label for="newKeyBlockBots" class="switch-label">Attempt to block headless browsers</label>
+        <label for="newKeyBlockBots" class="switch-label">尝试阻止无头浏览器</label>
       </div>
       <div class="switch-field">
         <label class="switch">
@@ -2531,19 +2531,19 @@ function openCreateKeyModal(prefill = "") {
           <span class="switch-track"></span>
         </label>
         <label for="newKeyCorsEnabled" class="switch-label">
-          Restrict allowed origins
-          <span class="hint">Only these origins will be able to request challenges for this key.</span>
+          限制允许的来源
+          <span class="hint">仅这些来源可以为此密钥请求挑战。</span>
         </label>
       </div>
       <div id="newKeyCorsPanel" style="display:none">
         <div id="newKeyCorsOriginsList" class="origin-list">
-          <div class="origin-entry"><input type="text" class="new-key-cors-origin-input" placeholder="example.com"><button class="origin-remove-btn" title="Remove">&times;</button></div>
+          <div class="origin-entry"><input type="text" class="new-key-cors-origin-input" placeholder="example.com"><button class="origin-remove-btn" title="移除">&times;</button></div>
         </div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
-      <button class="modal-btn primary" id="createKeySubmit">Create</button>
+      <button class="modal-btn secondary" onclick="closeModal()">取消</button>
+      <button class="modal-btn primary" id="createKeySubmit">创建</button>
     </div>`,
   );
 
@@ -2591,7 +2591,7 @@ function openCreateKeyModal(prefill = "") {
   function addNewKeyCorsRow(value = "") {
     const div = document.createElement("div");
     div.className = "origin-entry";
-    div.innerHTML = `<input type="text" class="new-key-cors-origin-input" value="${escapeHtml(value)}" placeholder="example.com"><button class="origin-remove-btn" title="Remove">&times;</button>`;
+    div.innerHTML = `<input type="text" class="new-key-cors-origin-input" value="${escapeHtml(value)}" placeholder="example.com"><button class="origin-remove-btn" title="移除">&times;</button>`;
     const inp = div.querySelector(".new-key-cors-origin-input");
     div.querySelector(".origin-remove-btn").addEventListener("click", () => {
       div.remove();
@@ -2650,14 +2650,14 @@ function openCreateKeyModal(prefill = "") {
           <p class="hint">Make sure to copy your secret key \u2014 it won\u2019t be shown again.</p></div>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn secondary" onclick="closeModal()">Close</button>
+          <button class="modal-btn secondary" onclick="closeModal()">关闭</button>
           <button class="modal-btn primary" onclick="closeModal(); selectKey('${res.siteKey}')">Open key</button>
         </div>`,
       );
       await loadKeys();
       selectKey(res.siteKey);
     } else {
-      showModal("Error", '<div class="modal-body"><p>Failed to create key.</p></div>');
+      showModal("错误", '<div class="modal-body"><p>Failed to create key.</p></div>');
     }
   });
 }
@@ -2668,14 +2668,14 @@ async function openSettings() {
   const fl = filteringSettings || { blockNonBrowserUA: false, requiredHeaders: [] };
   const globalRequiredHeaders = fl.requiredHeaders || [];
   const modal = createModal(
-    "Settings",
+    "设置",
     `
     <div class="settings-tabs">
       <div class="settings-tabs-indicator"></div>
-      <button class="settings-tab active" data-tab="sessions">Sessions</button>
-      <button class="settings-tab" data-tab="security">Security</button>
-      <button class="settings-tab" data-tab="apikeys">API keys</button>
-      <button class="settings-tab" data-tab="about">About</button>
+      <button class="settings-tab active" data-tab="sessions">会话</button>
+      <button class="settings-tab" data-tab="security">安全设置</button>
+      <button class="settings-tab" data-tab="apikeys">API 密钥</button>
+      <button class="settings-tab" data-tab="about">关于</button>
     </div>
     <div class="settings-content">
       <div class="settings-section active" id="sessionsSection"><div id="sessionsList"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></div></div>
@@ -2686,30 +2686,30 @@ async function openSettings() {
             <input type="checkbox" id="cfgGlobalCorsEnabled" ${corsOriginsList.length ? "checked" : ""}>
             <span class="switch-track"></span>
           </label>
-          <label for="cfgGlobalCorsEnabled" class="switch-label">Restrict allowed origins</label>
+          <label for="cfgGlobalCorsEnabled" class="switch-label">限制允许的来源</label>
         </div>
         <div id="globalCorsPanel" style="display:${corsOriginsList.length ? "block" : "none"}">
-          <p class="headers-description" style="margin:0 0 8px">Only these origins will be able to request challenges. Individual keys can override this.</p>
+          <p class="headers-description" style="margin:0 0 8px">仅这些来源可以请求挑战。单个密钥可以覆盖此设置。</p>
           <div id="globalCorsOrigins" class="origin-list">
-            ${corsOriginsList.map((o) => `<div class="origin-entry"><input type="text" class="cors-origin-input" value="${escapeHtml(o)}" placeholder="Add an origin\u2026"><button class="origin-remove-btn" title="Remove">&times;</button></div>`).join("")}
+            ${corsOriginsList.map((o) => `<div class="origin-entry"><input type="text" class="cors-origin-input" value="${escapeHtml(o)}" placeholder="添加来源\u2026"><button class="origin-remove-btn" title="移除">&times;</button></div>`).join("")}
           </div>
         </div>
         <div class="config-save-row">
-          <button class="save-btn" id="saveCorsBtn" disabled>Save</button>
+          <button class="save-btn" id="saveCorsBtn" disabled>保存</button>
         </div>
 
         <hr class="settings-divider">
 
-        <h4 class="settings-group-title">Request filtering</h4>
-        <p class="headers-description">Block requests that don't look like they come from real browsers. Individual keys can override these defaults.</p>
+        <h4 class="settings-group-title">请求过滤</h4>
+        <p class="headers-description">阻止不像是来自真实浏览器的请求。单个密钥可以覆盖这些默认值。</p>
         <div class="switch-field">
           <label class="switch">
             <input type="checkbox" id="cfgGlobalBlockNonBrowserUA" ${fl.blockNonBrowserUA ? "checked" : ""}>
             <span class="switch-track"></span>
           </label>
           <label for="cfgGlobalBlockNonBrowserUA" class="switch-label">
-            Block non-browser user agents
-            <span class="hint">Blocks requests from bots, scripts, and other non-browser clients (e.g. python-requests, curl).</span>
+            阻止非浏览器用户代理
+            <span class="hint">阻止来自机器人、脚本和其他非浏览器客户端的请求（例如 python-requests、curl）。</span>
           </label>
         </div>
         <div class="switch-field">
@@ -2718,8 +2718,8 @@ async function openSettings() {
             <span class="switch-track"></span>
           </label>
           <label for="cfgGlobalRequiredHeadersEnabled" class="switch-label">
-            Require browser headers
-            <span class="hint">Block requests missing common browser headers.</span>
+            要求浏览器标头
+            <span class="hint">阻止缺少常见浏览器标头的请求。</span>
           </label>
         </div>
         <div id="globalRequiredHeadersPanel" style="display:${globalRequiredHeaders.length ? "block" : "none"}">
@@ -2728,7 +2728,7 @@ async function openSettings() {
           </div>
         </div>
         <div class="config-save-row">
-          <button class="save-btn" id="saveFilteringBtn" disabled>Save</button>
+          <button class="save-btn" id="saveFilteringBtn" disabled>保存</button>
         </div>
       </div>
       <div class="settings-section" id="apikeysSection">
@@ -2744,7 +2744,7 @@ async function openSettings() {
         <p class="about-info" id="aboutInfo"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></p>
         <a href="https://github.com/tiagozip/cap" target="_blank" class="github-link">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          Star on GitHub
+          在 GitHub 上 Star
         </a>
       </div>
     </div>`,
@@ -2808,7 +2808,7 @@ async function openSettings() {
   function addGlobalCorsRow(value = "") {
     const div = document.createElement("div");
     div.className = "origin-entry";
-    div.innerHTML = `<input type="text" class="cors-origin-input" value="${escapeHtml(value)}" placeholder="Add an origin\u2026"><button class="origin-remove-btn" title="Remove">&times;</button>`;
+    div.innerHTML = `<input type="text" class="cors-origin-input" value="${escapeHtml(value)}" placeholder="添加来源\u2026"><button class="origin-remove-btn" title="移除">&times;</button>`;
     const input = div.querySelector(".cors-origin-input");
     div.querySelector(".origin-remove-btn").addEventListener("click", () => {
       div.remove();
@@ -2960,7 +2960,7 @@ async function openSettings() {
   if (Array.isArray(apikeys)) {
     if (apikeys.length === 0) {
       document.getElementById("apikeysList").innerHTML =
-        '<div class="empty-list">No API keys yet</div>';
+        '<div class="empty-list">暂无 API 密钥</div>';
     } else {
       document.getElementById("apikeysList").innerHTML = apikeys
         .map(
@@ -2970,7 +2970,7 @@ async function openSettings() {
             <div class="apikey-name">${escapeHtml(k.name)}</div>
             <div class="apikey-meta">${k.id.slice(0, 12)}... \u2022 created ${formatRelative(k.created)}</div>
           </div>
-          <button class="apikey-action" data-id="${k.id}">Delete</button>
+          <button class="apikey-action" data-id="${k.id}">删除</button>
         </div>`,
         )
         .join("");
@@ -2978,9 +2978,9 @@ async function openSettings() {
       document.querySelectorAll(".apikey-action").forEach((btn) => {
         btn.addEventListener("click", () => {
           showConfirmModal(
-            "Delete API key?",
-            "This will permanently delete this API key.",
-            "Delete",
+            "删除 API 密钥？",
+            "这将永久删除此 API 密钥。",
+            "删除",
             async () => {
               await api("DELETE", `/settings/apikeys/${btn.dataset.id}`);
             },
@@ -3005,15 +3005,15 @@ async function openSettings() {
 
 function openCreateApiKeyModal() {
   const modal = createModal(
-    "Create API Key",
+    "创建 API 密钥",
     `
     <div class="modal-body">
-      <div class="modal-field"><label for="apiKeyName">Key name</label>
+      <div class="modal-field"><label for="apiKeyName">密钥名称</label>
       <input type="text" id="apiKeyName"></div>
     </div>
     <div class="modal-footer">
-      <button class="modal-btn secondary" onclick="closeModal(); openSettings()">Cancel</button>
-      <button class="modal-btn primary" id="createApiKeySubmit">Create</button>
+      <button class="modal-btn secondary" onclick="closeModal(); openSettings()">取消</button>
+      <button class="modal-btn primary" id="createApiKeySubmit">创建</button>
     </div>`,
   );
 
@@ -3040,10 +3040,10 @@ function openCreateApiKeyModal() {
         `<div class="modal-body"><div class="modal-field"><label>API key</label>
         <input type="text" value="${res.apiKey}" readonly onclick="this.select()">
         <p class="hint">Make sure to copy your API key \u2014 it won\u2019t be shown again.</p></div></div>
-        <div class="modal-footer"><button class="modal-btn primary" onclick="closeModal(); openSettings()">Done</button></div>`,
+        <div class="modal-footer"><button class="modal-btn primary" onclick="closeModal(); openSettings()">完成</button></div>`,
       );
     } else {
-      showModal("Error", '<div class="modal-body"><p>Failed to create API key.</p></div>');
+      showModal("错误", '<div class="modal-body"><p>Failed to create API key.</p></div>');
     }
   });
 }
@@ -3063,7 +3063,7 @@ async function loadIPDBSettings() {
   };
 
   const hasDB = data.country?.exists || data.asn?.exists;
-  const isActive = data.mode && data.mode !== "";
+  const is活跃 = data.mode && data.mode !== "";
   const errorMsg = data.error || data.progress?.error || "";
 
   container.innerHTML = `
@@ -3073,13 +3073,13 @@ async function loadIPDBSettings() {
         : ""
     }
     ${
-      isActive
+      is活跃
         ? `
       <div class="ipdb-status-card">
         <div class="ipdb-status-row">
           <span class="ipdb-status-dot active"></span>
           <span class="ipdb-status-label">${data.mode === "dbip" ? "DB-IP Lite" : data.mode === "maxmind" ? "MaxMind GeoLite2" : "IPInfo API"}</span>
-          ${data.lastUpdated ? `<span class="ipdb-status-meta">Updated ${formatRelative(data.lastUpdated)}</span>` : ""}
+          ${data.last更新d ? `<span class="ipdb-status-meta">更新d ${formatRelative(data.last更新d)}</span>` : ""}
         </div>
         ${
           hasDB
@@ -3090,8 +3090,8 @@ async function loadIPDBSettings() {
             : ""
         }
         <div class="ipdb-actions">
-          <button class="preset-btn" id="ipdbUpdateBtn">Update</button>
-          <button class="preset-btn" id="ipdbDeleteBtn" style="color:var(--red)">Delete</button>
+          <button class="preset-btn" id="ipdb更新Btn">更新</button>
+          <button class="preset-btn" id="ipdbDeleteBtn" style="color:var(--red)">删除</button>
         </div>
       </div>
     `
@@ -3117,17 +3117,17 @@ async function loadIPDBSettings() {
           <label>IPInfo token</label>
           <input type="text" id="ipdbIpinfoToken" placeholder="Your IPInfo API token">
         </div>
-        <button class="save-btn" id="ipdbDownloadBtn">Download & activate</button>
+        <button class="save-btn" id="ipdbDownloadBtn">下载并激活</button>
       </div>
     `
     }
     <div class="ipdb-progress" id="ipdbProgress" style="display:none">
       <div class="ipdb-progress-bar"><div class="ipdb-progress-fill" id="ipdbProgressFill"></div></div>
-      <span class="ipdb-progress-text" id="ipdbProgressText">Downloading...</span>
+      <span class="ipdb-progress-text" id="ipdbProgressText">下载中...</span>
     </div>
   `;
 
-  if (!isActive) {
+  if (!is活跃) {
     const modeSelect = container.querySelector("#ipdbMode");
     const maxmindAccountField = container.querySelector("#ipdbMaxmindAccountField");
     const maxmindField = container.querySelector("#ipdbMaxmindField");
@@ -3155,15 +3155,15 @@ async function loadIPDBSettings() {
       const res = await api("POST", "/settings/ipdb/download", body);
       if (!res.success) {
         showModal(
-          "Error",
-          `<div class="modal-body"><p>${escapeHtml(res.error || "Download failed")}</p></div>`,
+          "错误",
+          `<div class="modal-body"><p>${escapeHtml(res.error || "下载失败")}</p></div>`,
         );
         downloadBtn.disabled = false;
-        downloadBtn.innerHTML = "Download & activate";
+        downloadBtn.innerHTML = "下载并激活";
         return;
       }
 
-      downloadBtn.innerHTML = `${IPDB_SPINNER_SVG} Downloading...`;
+      downloadBtn.innerHTML = `${IPDB_SPINNER_SVG} 下载中...`;
       const progressEl = container.querySelector("#ipdbProgress");
       progressEl.style.display = "";
       const pollFn = async () => {
@@ -3175,14 +3175,14 @@ async function loadIPDBSettings() {
           if (p.total > 0) {
             const pct = Math.round((p.downloaded / p.total) * 100);
             if (fill) fill.style.width = `${pct}%`;
-            label = `Downloading ${p.file}... ${pct}%`;
+            label = `下载中 ${p.file}... ${pct}%`;
           } else {
             if (fill) {
               fill.style.width = "100%";
               fill.style.opacity = "0.4";
             }
             const kb = (p.downloaded / 1024).toFixed(0);
-            label = `Downloading ${p.file}... ${kb} KB`;
+            label = `下载中 ${p.file}... ${kb} KB`;
           }
           if (text) text.textContent = label;
           downloadBtn.innerHTML = `${IPDB_SPINNER_SVG} ${escapeHtml(label)}`;
@@ -3195,7 +3195,7 @@ async function loadIPDBSettings() {
       const poll = setInterval(pollFn, 500);
     });
   } else {
-    container.querySelector("#ipdbUpdateBtn")?.addEventListener("click", async () => {
+    container.querySelector("#ipdb更新Btn")?.addEventListener("click", async () => {
       const body = { mode: data.mode };
       if (data.mode === "maxmind") {
         body.maxmindAccountId = prompt("MaxMind account ID:", data.maxmindAccountId || "") || "";
@@ -3206,7 +3206,7 @@ async function loadIPDBSettings() {
       } else if (data.mode === "maxmind" && (!body.maxmindAccountId || !body.maxmindKey)) return;
       else if (data.mode === "ipinfo" && !body.ipinfoToken) return;
 
-      const updateBtn = container.querySelector("#ipdbUpdateBtn");
+      const updateBtn = container.querySelector("#ipdb更新Btn");
       updateBtn.disabled = true;
       updateBtn.innerHTML = `${IPDB_SPINNER_SVG} Updating...`;
       const deleteBtn = container.querySelector("#ipdbDeleteBtn");
@@ -3227,12 +3227,12 @@ async function loadIPDBSettings() {
           if (p.total > 0) {
             const pct = Math.round((p.downloaded / p.total) * 100);
             if (fill) fill.style.width = `${pct}%`;
-            label = `Downloading ${p.file}... ${pct}%`;
+            label = `下载中 ${p.file}... ${pct}%`;
           } else {
             if (fill) fill.style.width = "100%";
             if (fill) fill.style.opacity = "0.4";
             const kb = (p.downloaded / 1024).toFixed(0);
-            label = `Downloading ${p.file}... ${kb} KB`;
+            label = `下载中 ${p.file}... ${kb} KB`;
           }
           if (text) text.textContent = label;
           updateBtn.innerHTML = `${IPDB_SPINNER_SVG} ${escapeHtml(label)}`;
@@ -3242,9 +3242,9 @@ async function loadIPDBSettings() {
 
     container.querySelector("#ipdbDeleteBtn")?.addEventListener("click", () => {
       showConfirmModal(
-        "Delete IP Database?",
+        "删除 IP 数据库？",
         "This will remove the downloaded IP database files. Country and ASN lookups will stop working unless you have headers configured.",
-        "Delete",
+        "删除",
         async () => {
           await api("DELETE", "/settings/ipdb");
           loadIPDBSettings();
@@ -3268,12 +3268,12 @@ async function loadIPDBSettings() {
         if (p.total > 0) {
           const pct = Math.round((p.downloaded / p.total) * 100);
           if (fill) fill.style.width = `${pct}%`;
-          if (text) text.textContent = `Downloading ${p.file}... ${pct}%`;
+          if (text) text.textContent = `下载中 ${p.file}... ${pct}%`;
         } else {
           if (fill) fill.style.width = "100%";
           if (fill) fill.style.opacity = "0.4";
           const kb = (p.downloaded / 1024).toFixed(0);
-          if (text) text.textContent = `Downloading ${p.file}... ${kb} KB`;
+          if (text) text.textContent = `下载中 ${p.file}... ${kb} KB`;
         }
       }
     }, 500);

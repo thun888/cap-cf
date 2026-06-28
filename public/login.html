@@ -225,11 +225,11 @@
   <body>
     <div class="login-container">
       <div class="info-side">
-        <h1>The self-hosted CAPTCHA for the modern web.</h1>
+        <h1>面向现代网页的自托管 CAPTCHA</h1>
       </div>
 
       <form action="javascript:void(0)">
-        <label>Admin key</label>
+        <label>管理员密钥</label>
         <div class="password-wrapper">
           <input
             type="password"
@@ -237,7 +237,7 @@
             placeholder="&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;&#x2022;"
             class="password"
           />
-          <button title="Show/hide password" class="showhide-password" type="button">
+          <button title="显示/隐藏密码" class="showhide-password" type="button">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
@@ -257,13 +257,13 @@
           </button>
         </div>
 
-        <button type="submit" class="submit">Continue to Cap</button>
+        <button type="submit" class="submit">继续进入 Cap</button>
         <p class="err"></p>
         <p class="bottom">
           <a href="https://github.com/tiagozip/cap/issues/new/choose" target="_blank" rel="noopener"
-            >Report issues</a
+            >反馈问题</a
           >
-          <a href="https://trycap.dev/" target="_blank" class="poweredby">Powered by Cap</a>
+          <a href="https://trycap.dev/" target="_blank" class="poweredby">由 Cap 驱动</a>
         </p>
       </form>
     </div>
@@ -313,7 +313,7 @@
 
       document.querySelector("button[type=submit]").disabled = false;
       document.querySelector("p.err").style.display = "block";
-      document.querySelector("p.err").innerText = "Incorrect admin key";
+      document.querySelector("p.err").innerText = "管理员密钥不正确";
       document.querySelector("input[name=password]").value = "";
     });
 
