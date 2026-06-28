@@ -243,8 +243,6 @@ serverRoutes.put('/keys/:siteKey/config', async (c) => {
     instrumentation: body.instrumentation ?? key.config.instrumentation,
     obfuscationLevel: body.obfuscationLevel ?? key.config.obfuscationLevel,
     blockAutomatedBrowsers: body.blockAutomatedBrowsers ?? key.config.blockAutomatedBrowsers,
-    ratelimitMax: body.ratelimitMax !== undefined ? body.ratelimitMax : key.config.ratelimitMax,
-    ratelimitDuration: body.ratelimitDuration !== undefined ? body.ratelimitDuration : key.config.ratelimitDuration,
     corsOrigins: body.corsOrigins !== undefined ? body.corsOrigins : key.config.corsOrigins,
     blockNonBrowserUA: body.blockNonBrowserUA !== undefined ? body.blockNonBrowserUA : key.config.blockNonBrowserUA,
     requiredHeaders: body.requiredHeaders !== undefined ? body.requiredHeaders : key.config.requiredHeaders,
@@ -426,28 +424,6 @@ serverRoutes.post('/settings/apikeys', async (c) => {
 serverRoutes.delete('/settings/apikeys/:id', async (c) => {
   const id = c.req.param('id');
   await deleteApiKey(c.env.DB, id);
-  return c.json({ success: true });
-});
-
-// GET /server/settings/ratelimit - Get rate limit settings
-serverRoutes.get('/settings/ratelimit', async (c) => {
-  const raw = await getSetting(c.env.DB, 'ratelimit');
-  if (!raw) return c.json({ max: 30, duration: 5000 });
-  try {
-    return c.json(JSON.parse(raw));
-  } catch {
-    return c.json({ max: 30, duration: 5000 });
-  }
-});
-
-// PUT /server/settings/ratelimit - Update rate limit settings
-serverRoutes.put('/settings/ratelimit', async (c) => {
-  const body = await c.req.json();
-  const settings = {
-    max: body.max ?? 30,
-    duration: body.duration ?? 5000,
-  };
-  await setSetting(c.env.DB, 'ratelimit', JSON.stringify(settings));
   return c.json({ success: true });
 });
 

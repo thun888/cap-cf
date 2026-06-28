@@ -21,8 +21,6 @@ export interface KeyConfig {
   rsw: boolean;
   rswT: number;
   corsOrigins?: string[];
-  ratelimitMax?: number;
-  ratelimitDuration?: number;
   blockNonBrowserUA?: boolean;
   requiredHeaders?: string[];
 }

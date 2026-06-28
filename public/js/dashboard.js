@@ -2,7 +2,6 @@ let keys = [];
 let selectedKey;
 let chart;
 let currentTab = "activity";
-let ratelimitSettings = null;
 let corsSettings = null;
 let filteringSettings = null;
 let hasGeoSource = false;
@@ -141,10 +140,6 @@ async function init() {
   if (demoMode) hasGeoSource = true;
 
   hasGeoSource = true; // Cloudflare Workers provides geo data natively
-
-  api("GET", "/settings/ratelimit").then((res) => {
-    ratelimitSettings = res?.error ? null : res;
-  });
 
   api("GET", "/settings/cors").then((res) => {
     corsSettings = res?.error ? null : res;
@@ -591,20 +586,6 @@ function renderKeyDetail() {
 
         <h3 class="config-section-title">Security</h3>
         <div class="config-card">
-          <h4 class="config-subsection-title">Rate limiting</h4>
-          <p class="headers-description" style="margin:-4px 0 8px">Override the global rate limit for this key. Leave empty to use the global defaults${ratelimitSettings ? ` (${ratelimitSettings.max} reqs / ${ratelimitSettings.duration / 1000}s)` : ""}.</p>
-          <div class="edit-row">
-            <div class="edit-field">
-              <label>Max requests</label>
-              <input type="number" id="cfgRatelimitMax" value="${key.config.ratelimitMax ?? ""}" min="1" max="10000" placeholder="${ratelimitSettings?.max ?? 30}">
-            </div>
-            <div class="edit-field">
-              <label>Window (ms)</label>
-              <input type="number" id="cfgRatelimitDuration" value="${key.config.ratelimitDuration ?? ""}" min="1000" max="3600000" step="1000" placeholder="${ratelimitSettings?.duration ?? 5000}">
-            </div>
-          </div>
-
-          <hr class="settings-divider">
 
           <h4 class="config-subsection-title">CORS</h4>
           <div class="switch-field">
@@ -801,10 +782,6 @@ function renderKeyDetail() {
   }
 
   function checkSecurityDirty() {
-    const rlMaxVal = document.getElementById("cfgRatelimitMax").value;
-    const rlDurVal = document.getElementById("cfgRatelimitDuration").value;
-    const ratelimitMax = rlMaxVal === "" ? null : parseInt(rlMaxVal, 10);
-    const ratelimitDuration = rlDurVal === "" ? null : parseInt(rlDurVal, 10);
     const corsEnabled = document.getElementById("cfgCorsEnabled").checked;
     const keyCorsOrigins = corsEnabled ? getKeyCorsEntries() : [];
     const keyCorsOriginsVal = keyCorsOrigins.length ? keyCorsOrigins : null;
@@ -813,8 +790,6 @@ function renderKeyDetail() {
     const requiredHeaders = reqHeadersEnabled ? getKeyRequiredHeaders() : [];
     const requiredHeadersVal = requiredHeaders.length ? requiredHeaders : null;
     const dirty =
-      ratelimitMax !== (key.config.ratelimitMax ?? null) ||
-      ratelimitDuration !== (key.config.ratelimitDuration ?? null) ||
       !corsArraysEqual(keyCorsOriginsVal, key.config.corsOrigins ?? null) ||
       blockNonBrowserUA !== (key.config.blockNonBrowserUA ?? false) ||
       !corsArraysEqual(requiredHeadersVal, key.config.requiredHeaders ?? null);
@@ -828,9 +803,6 @@ function renderKeyDetail() {
 
   for (const id of ["cfgName", "cfgDifficulty", "cfgChallengeCount"]) {
     document.getElementById(id)?.addEventListener("input", checkMainDirty);
-  }
-  for (const id of ["cfgRatelimitMax", "cfgRatelimitDuration"]) {
-    document.getElementById(id)?.addEventListener("input", checkSecurityDirty);
   }
 
   function ensureKeyCorsEmptyRow() {
@@ -2389,10 +2361,6 @@ async function saveMainConfig() {
 async function saveSecurityConfig() {
   const btn = document.getElementById("saveSecurityConfigBtn");
   btn.disabled = true;
-  const rlMaxVal = document.getElementById("cfgRatelimitMax").value;
-  const rlDurVal = document.getElementById("cfgRatelimitDuration").value;
-  const ratelimitMax = rlMaxVal === "" ? null : parseInt(rlMaxVal, 10);
-  const ratelimitDuration = rlDurVal === "" ? null : parseInt(rlDurVal, 10);
   const corsEnabled = document.getElementById("cfgCorsEnabled").checked;
   const keyCorsEntries = corsEnabled
     ? [...document.querySelectorAll("#keyCorsOriginsList .key-cors-origin-input")]
@@ -2417,8 +2385,6 @@ async function saveSecurityConfig() {
   const requiredHeadersVal = requiredHeaders.length ? requiredHeaders : null;
 
   const res = await api("PUT", `/keys/${selectedKey.siteKey}/config`, {
-    ratelimitMax,
-    ratelimitDuration,
     corsOrigins,
     blockNonBrowserUA,
     requiredHeaders: requiredHeadersVal,
@@ -2427,8 +2393,6 @@ async function saveSecurityConfig() {
   if (res.success) {
     selectedKey.config = {
       ...selectedKey.config,
-      ratelimitMax,
-      ratelimitDuration,
       corsOrigins,
       blockNonBrowserUA,
       requiredHeaders: requiredHeadersVal,
@@ -2698,7 +2662,6 @@ function openCreateKeyModal(prefill = "") {
 }
 
 async function openSettings() {
-  const rl = ratelimitSettings || { max: 30, duration: 5000 };
   const cs = corsSettings || { origins: null };
   const corsOriginsList = cs.origins || [];
   const fl = filteringSettings || { blockNonBrowserUA: false, requiredHeaders: [] };
@@ -2716,25 +2679,6 @@ async function openSettings() {
     <div class="settings-content">
       <div class="settings-section active" id="sessionsSection"><div id="sessionsList"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-loader-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a9 9 0 1 0 9 9" /></svg></div></div>
       <div class="settings-section" id="securitySection">
-        <h4 class="settings-group-title">Global rate limit</h4>
-        <p class="headers-description">Default rate limit applied to all challenge endpoints. Individual keys can override these values in their configuration.</p>
-        <div class="edit-row">
-          <div class="edit-field">
-            <label>Max requests</label>
-            <input type="number" id="cfgGlobalRatelimitMax" value="${rl.max}" min="1" max="10000">
-            <span class="field-hint">Requests allowed per window</span>
-          </div>
-          <div class="edit-field">
-            <label>Window (ms)</label>
-            <input type="number" id="cfgGlobalRatelimitDuration" value="${rl.duration}" min="1000" max="3600000" step="1000">
-            <span class="field-hint">Time window in milliseconds (e.g. 5000 = 5s)</span>
-          </div>
-        </div>
-        <div class="config-save-row">
-          <button class="save-btn" id="saveGlobalRatelimitBtn" disabled>Save</button>
-        </div>
-
-        <hr class="settings-divider">
 
         <div class="switch-field">
           <label class="switch">
@@ -2832,39 +2776,6 @@ async function openSettings() {
       modal.querySelector(`#${tab.dataset.tab}Section`).classList.add("active");
       updateSettingsIndicator();
     });
-  });
-
-  function checkGlobalRatelimitDirty() {
-    const max = parseInt(document.getElementById("cfgGlobalRatelimitMax").value, 10);
-    const duration = parseInt(document.getElementById("cfgGlobalRatelimitDuration").value, 10);
-    const dirty = max !== rl.max || duration !== rl.duration;
-    document.getElementById("saveGlobalRatelimitBtn").disabled = !dirty;
-  }
-
-  document
-    .getElementById("cfgGlobalRatelimitMax")
-    ?.addEventListener("input", checkGlobalRatelimitDirty);
-  document
-    .getElementById("cfgGlobalRatelimitDuration")
-    ?.addEventListener("input", checkGlobalRatelimitDirty);
-
-  document.getElementById("saveGlobalRatelimitBtn")?.addEventListener("click", async () => {
-    const btn = document.getElementById("saveGlobalRatelimitBtn");
-    btn.disabled = true;
-    const max = parseInt(document.getElementById("cfgGlobalRatelimitMax").value, 10);
-    const duration = parseInt(document.getElementById("cfgGlobalRatelimitDuration").value, 10);
-    if (!max || max < 1 || !duration || duration < 1000) {
-      btn.disabled = false;
-      return;
-    }
-    const res = await api("PUT", "/settings/ratelimit", { max, duration });
-    if (res.success) {
-      ratelimitSettings = { max, duration };
-      rl.max = max;
-      rl.duration = duration;
-    } else {
-      btn.disabled = false;
-    }
   });
 
   function getCorsEntries() {
