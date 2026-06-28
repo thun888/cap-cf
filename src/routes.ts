@@ -473,41 +473,64 @@ challengeRoutes.post('/:siteKey/redeem', async (c) => {
 // Siteverify API (for external verification)
 export const siteverifyRoutes = new Hono<{ Bindings: Env }>();
 
-// POST /siteverify - Verify token
+// POST /siteverify or /:siteKey/siteverify
+// Accepts both JSON and form-urlencoded bodies
 siteverifyRoutes.post('/', async (c) => {
   const cache = createCacheAdapter(c.env);
-  const body = await c.req.json();
 
-  if (!body.secret || !body.response) {
-    return c.json({ success: false, error: 'Missing required fields' }, 400);
+  // Parse body — accepts both form-urlencoded and JSON
+  let body: Record<string, string> = {};
+  const contentType = c.req.header('content-type') || '';
+  if (contentType.includes('application/json')) {
+    body = await c.req.json();
+  } else {
+    const text = await c.req.text();
+    for (const pair of text.split('&')) {
+      const [key, val] = pair.split('=');
+      if (key) body[decodeURIComponent(key)] = decodeURIComponent(val || '');
+    }
   }
 
-  // Parse the response token
-  const parts = body.response.split(':');
+  const secret = body.secret;
+  const response = body.response;
+
+  if (!secret || !response) {
+    return c.json({ success: false, error: 'Missing required parameters' }, 400);
+  }
+
+  // Parse the response token: siteKey:redeemId:redeemSecret
+  const parts = response.split(':');
   if (parts.length !== 3) {
     return c.json({ success: false, error: 'Invalid token format' }, 400);
   }
 
-  const [siteKey, redeemId, redeemSecret] = parts;
+  // Use siteKey from URL path if present, otherwise from token
+  const urlSiteKey = c.req.param('siteKey');
+  const siteKey = urlSiteKey || parts[0];
+
+  // If URL has siteKey, verify token matches
+  if (urlSiteKey && !response.startsWith(urlSiteKey)) {
+    return c.json({ success: false, error: 'Invalid site key or secret' }, 404);
+  }
 
   // Get key data
   const keyData = await getKey(c.env.DB, siteKey);
   if (!keyData) {
-    return c.json({ success: false, error: 'Invalid site key' }, 400);
+    return c.json({ success: false, error: 'Invalid site key or secret' }, 404);
   }
 
   // Verify secret
-  const secretHash = await hashPassword(body.secret);
+  const secretHash = await hashPassword(secret);
   if (secretHash !== keyData.secretHash) {
-    return c.json({ success: false, error: 'Invalid secret' }, 400);
+    return c.json({ success: false, error: 'Invalid site key or secret' }, 403);
   }
 
-  // Check token exists
-  const tokenKey = `token:${body.response}`;
+  // Check token exists (one-time use)
+  const tokenKey = `token:${response}`;
   const tokenExists = await cache.get(tokenKey);
 
   if (!tokenExists) {
-    return c.json({ success: false, error: 'Token expired or already used' }, 400);
+    return c.json({ success: false, error: 'Token not found' }, 404);
   }
 
   // Delete token (one-time use)

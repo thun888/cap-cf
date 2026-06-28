@@ -53,6 +53,7 @@ app.use('*', async (c, next) => {
 app.route('/auth', authRoutes);
 app.route('/server', serverRoutes);
 app.route('/siteverify', siteverifyRoutes);
+app.route('/:siteKey/siteverify', siteverifyRoutes);
 
 // Assets proxy
 app.get('/assets/:filename', async (c) => {

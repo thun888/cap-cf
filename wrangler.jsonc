@@ -24,7 +24,7 @@
     "CACHE_BACKEND": "d1",
     "ENABLE_ASSETS_SERVER": "true",
     "WIDGET_VERSION": "0.1.56",
-    "WASM_VERSION": "0.07"
+    "WASM_VERSION": "0.0.7"
   },
 	"routes": [
 		{
