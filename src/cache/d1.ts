@@ -1,6 +1,6 @@
 // D1 Cache Adapter
 
-import type { CacheAdapter } from './interface';
+import type { CacheAdapter, CacheEntry } from './interface';
 
 export class D1CacheAdapter implements CacheAdapter {
   private initialized = false;
@@ -10,14 +10,8 @@ export class D1CacheAdapter implements CacheAdapter {
   private async ensureTable(): Promise<void> {
     if (this.initialized) return;
 
-    await this.db.exec(`
-      CREATE TABLE IF NOT EXISTS cache (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        expires_at INTEGER
-      );
-      CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires_at);
-    `);
+    await this.db.exec('CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at INTEGER)');
+    await this.db.exec('CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires_at)');
 
     this.initialized = true;
   }
@@ -91,5 +85,20 @@ export class D1CacheAdapter implements CacheAdapter {
       .run();
 
     return newValue;
+  }
+
+  async list(prefix: string): Promise<CacheEntry[]> {
+    await this.ensureTable();
+
+    const now = Math.floor(Date.now() / 1000);
+    const { results } = await this.db
+      .prepare('SELECT key, value FROM cache WHERE key LIKE ? AND (expires_at IS NULL OR expires_at > ?)')
+      .bind(`${prefix}%`, now)
+      .all();
+
+    return results.map((r: any) => ({
+      key: r.key as string,
+      value: r.value as string,
+    }));
   }
 }

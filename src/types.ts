@@ -4,6 +4,7 @@ export interface Env {
   // Bindings
   KV?: KVNamespace;  // Optional, for cache backend
   DB: D1Database;
+  ASSETS?: Fetcher;  // Static assets binding
 
   // Environment Variables
   ADMIN_KEY: string;

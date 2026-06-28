@@ -1,6 +1,6 @@
 // KV Cache Adapter
 
-import type { CacheAdapter } from './interface';
+import type { CacheAdapter, CacheEntry } from './interface';
 
 export class KVCacheAdapter implements CacheAdapter {
   constructor(private kv: KVNamespace) {}
@@ -22,5 +22,15 @@ export class KVCacheAdapter implements CacheAdapter {
     const newValue = Number(current) + amount;
     await this.kv.put(key, String(newValue), expirationTtl ? { expirationTtl } : undefined);
     return newValue;
+  }
+
+  async list(prefix: string): Promise<CacheEntry[]> {
+    const result = await this.kv.list({ prefix });
+    const entries: CacheEntry[] = [];
+    for (const k of result.keys) {
+      const value = (await this.kv.get(k.name)) || '';
+      entries.push({ key: k.name, value });
+    }
+    return entries;
   }
 }

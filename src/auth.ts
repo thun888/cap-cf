@@ -4,6 +4,15 @@ import type { Context, Next } from 'hono';
 import type { Env } from './types';
 import { getSession, getApiKey } from './db';
 
+// SHA-256 hash helper
+async function sha256(data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
   const authHeader = c.req.header('authorization');
 
@@ -44,13 +53,8 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) 
     }
 
     // Verify token hash
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-
-    if (hashHex !== apiKey.tokenHash) {
+    const tokenHash = await sha256(token);
+    if (tokenHash !== apiKey.tokenHash) {
       return c.json(
         {
           success: false,
@@ -77,9 +81,17 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) 
 
   let token: string, hash: string;
   try {
-    const decoded = atob(authHeader.slice(8).trim());
+    let encoded = authHeader.slice(7).trim();  // "Bearer " is 7 characters
+    // Ensure proper base64 padding
+    while (encoded.length % 4 !== 0) {
+      encoded += '=';
+    }
+    // Handle URL-safe base64
+    encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(encoded);
     ({ token, hash } = JSON.parse(decoded));
-  } catch {
+  } catch (e) {
+    console.error('Auth decode error:', e);
     return c.json(
       {
         success: false,
@@ -100,13 +112,8 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) 
     );
   }
 
-  // Verify token
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const tokenHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-
+  // Verify token: hash(token) should equal stored hash
+  const tokenHash = await sha256(token);
   if (tokenHash !== hash) {
     return c.json(
       {

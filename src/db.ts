@@ -253,18 +253,14 @@ export async function incrementMetric(cache: CacheAdapter, siteKey: string, metr
 }
 
 export async function getMetrics(cache: CacheAdapter, siteKey: string, metric: string): Promise<Record<string, number>> {
-  // For D1 backend, we need to query with prefix
-  // For KV backend, we use list
-  // Since our cache interface doesn't support list, we'll use a different approach
-  // Store a set of metric keys and query them individually
-
-  // This is a simplified implementation - in production, you might want to
-  // maintain a separate index of metric keys
   const prefix = `metrics:${metric}:${siteKey}:`;
-
-  // For now, return empty - we'll need to enhance the cache adapter for list support
-  // or use a different strategy for metrics aggregation
-  return {};
+  const entries = await cache.list(prefix);
+  const result: Record<string, number> = {};
+  for (const entry of entries) {
+    const bucket = entry.key.replace(prefix, '');
+    result[bucket] = Number(entry.value) || 0;
+  }
+  return result;
 }
 
 // Token storage

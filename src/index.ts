@@ -9,6 +9,18 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
 import { serverRoutes, challengeRoutes, siteverifyRoutes, authRoutes } from './routes';
+import { loadRswKeypair } from './rsw-store';
+
+// Startup initialization — runs once at cold start
+let rswInitPromise: Promise<void> | null = null;
+
+function initWorker(env: Env): void {
+  if (!rswInitPromise) {
+    rswInitPromise = loadRswKeypair(env.DB).catch((e) =>
+      console.warn('[cap] RSW keypair load:', e.message),
+    );
+  }
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -26,7 +38,6 @@ app.use('*', async (c, next) => {
   // For other requests, check CORS config
   const corsHandler = cors({
     origin: (origin) => {
-      // You can customize this based on your needs
       return origin || '*';
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -37,16 +48,14 @@ app.use('*', async (c, next) => {
   return corsHandler(c, next);
 });
 
-// Health check
-app.get('/', (c) => {
-  return c.json({ status: 'ok', service: 'Cap CF' });
-});
-
-// Mount routes
+// API routes
 app.route('/auth', authRoutes);
 app.route('/server', serverRoutes);
-app.route('/', challengeRoutes);
 app.route('/siteverify', siteverifyRoutes);
+
+// Challenge routes (public)
+app.route('/', challengeRoutes);
+
 
 // Handle 404
 app.notFound((c) => {
@@ -68,6 +77,7 @@ app.onError((err, c) => {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    initWorker(env);
     return app.fetch(request, env, ctx);
   },
 };

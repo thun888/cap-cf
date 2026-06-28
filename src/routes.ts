@@ -27,6 +27,7 @@ import {
   incrementMetric,
 } from './db';
 import { generateChallenge, validateChallenge } from './captcha';
+import { getRswStatus, ensureRswKeypair } from './rsw-store';
 
 // Helper to generate random hex
 function randomHex(bytes: number): string {
@@ -185,15 +186,20 @@ serverRoutes.get('/keys/:siteKey', async (c) => {
       endTime = now + 3600;
   }
 
-  const [verifiedH, failedH, ratelimitedH] = await Promise.all([
+  const [verifiedH, failedH, ratelimitedH, latSumH, latCountH] = await Promise.all([
     getMetrics(cache, siteKey, 'verified'),
     getMetrics(cache, siteKey, 'failed'),
     getMetrics(cache, siteKey, 'ratelimited'),
+    getMetrics(cache, siteKey, 'latency_sum'),
+    getMetrics(cache, siteKey, 'latency_count'),
   ]);
 
   const totalVerified = sumSolutions(verifiedH, startTime, endTime);
   const totalFailed = sumSolutions(failedH, startTime, endTime);
   const totalRateLimited = sumSolutions(ratelimitedH, startTime, endTime);
+  const totalLatSum = sumSolutions(latSumH, startTime, endTime);
+  const totalLatCount = sumSolutions(latCountH, startTime, endTime);
+  const avgLatency = totalLatCount > 0 ? Math.round(totalLatSum / totalLatCount) : 0;
 
   const chartData = buildChartData(verifiedH, failedH, ratelimitedH, startTime, endTime, bucketSize, chartDuration, now, day);
 
@@ -208,7 +214,7 @@ serverRoutes.get('/keys/:siteKey', async (c) => {
       challenges: totalVerified + totalFailed,
       verified: totalVerified,
       failed: totalFailed,
-      avgLatency: 0,
+      avgLatency,
       rateLimited: totalRateLimited,
     },
     chartData: {
@@ -339,6 +345,46 @@ serverRoutes.post('/keys/:siteKey/unblock-ip', async (c) => {
   return c.json({ success: true });
 });
 
+// GET /server/keys/:siteKey/geo-stats - Geo statistics
+serverRoutes.get('/keys/:siteKey/geo-stats', async (c) => {
+  const cache = createCacheAdapter(c.env);
+  const siteKey = c.req.param('siteKey');
+
+  const [countryData, asnData, platformData, osData] = await Promise.all([
+    getMetrics(cache, siteKey, 'country'),
+    getMetrics(cache, siteKey, 'asn'),
+    getMetrics(cache, siteKey, 'platform'),
+    getMetrics(cache, siteKey, 'os'),
+  ]);
+
+  const countries = Object.entries(countryData)
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const asns = Object.entries(asnData)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const platforms = Object.entries(platformData)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const oses = Object.entries(osData)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return c.json({
+    countries,
+    totalCountry: countries.reduce((s, c) => s + c.count, 0),
+    asns,
+    totalAsn: asns.reduce((s, a) => s + a.count, 0),
+    platforms,
+    totalPlatform: platforms.reduce((s, p) => s + p.count, 0),
+    oses,
+    totalOs: oses.reduce((s, o) => s + o.count, 0),
+  });
+});
+
 // GET /server/settings/sessions - List sessions
 serverRoutes.get('/settings/sessions', async (c) => {
   const sessions = await listSessions(c.env.DB);
@@ -383,29 +429,6 @@ serverRoutes.delete('/settings/apikeys/:id', async (c) => {
   return c.json({ success: true });
 });
 
-// GET /server/settings/headers - Get header settings
-serverRoutes.get('/settings/headers', async (c) => {
-  const raw = await getSetting(c.env.DB, 'headers');
-  if (!raw) return c.json({ ipHeader: '', countryHeader: '', asnHeader: '' });
-  try {
-    return c.json(JSON.parse(raw));
-  } catch {
-    return c.json({ ipHeader: '', countryHeader: '', asnHeader: '' });
-  }
-});
-
-// PUT /server/settings/headers - Update header settings
-serverRoutes.put('/settings/headers', async (c) => {
-  const body = await c.req.json();
-  const settings = {
-    ipHeader: body.ipHeader || '',
-    countryHeader: body.countryHeader || '',
-    asnHeader: body.asnHeader || '',
-  };
-  await setSetting(c.env.DB, 'headers', JSON.stringify(settings));
-  return c.json({ success: true });
-});
-
 // GET /server/settings/ratelimit - Get rate limit settings
 serverRoutes.get('/settings/ratelimit', async (c) => {
   const raw = await getSetting(c.env.DB, 'ratelimit');
@@ -447,6 +470,44 @@ serverRoutes.put('/settings/cors', async (c) => {
   return c.json({ success: true });
 });
 
+// GET /server/settings/rsw - Get RSW status
+serverRoutes.get('/settings/rsw', (c) => {
+  return c.json(getRswStatus());
+});
+
+// POST /server/settings/rsw/ensure - Generate RSW keypair if needed
+serverRoutes.post('/settings/rsw/ensure', async (c) => {
+  try {
+    const next = await ensureRswKeypair(c.env.DB);
+    return c.json({ success: true, ...next });
+  } catch (e: any) {
+    console.error('[cap] RSW keypair generation failed:', e);
+    return c.json({ success: false, error: 'Generation failed' }, 500);
+  }
+});
+
+// GET /server/settings/filtering - Get filtering settings
+serverRoutes.get('/settings/filtering', async (c) => {
+  const raw = await getSetting(c.env.DB, 'filtering');
+  if (!raw) return c.json({ blockNonBrowserUA: false, requiredHeaders: [] });
+  try {
+    return c.json(JSON.parse(raw));
+  } catch {
+    return c.json({ blockNonBrowserUA: false, requiredHeaders: [] });
+  }
+});
+
+// PUT /server/settings/filtering - Update filtering settings
+serverRoutes.put('/settings/filtering', async (c) => {
+  const body = await c.req.json();
+  const settings = {
+    blockNonBrowserUA: body.blockNonBrowserUA ?? false,
+    requiredHeaders: body.requiredHeaders ?? [],
+  };
+  await setSetting(c.env.DB, 'filtering', JSON.stringify(settings));
+  return c.json({ success: true });
+});
+
 // GET /server/about - Get server info
 serverRoutes.get('/about', (c) => {
   return c.json({
@@ -456,13 +517,53 @@ serverRoutes.get('/about', (c) => {
   });
 });
 
+// POST /server/logout - Logout session
+serverRoutes.post('/logout', async (c) => {
+  const authHeader = c.req.header('authorization');
+  if (!authHeader) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+
+  // Decode the Bearer token to get the session hash
+  let session = '';
+  try {
+    let encoded = authHeader.slice(7).trim();
+    while (encoded.length % 4 !== 0) encoded += '=';
+    encoded = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const { hash } = JSON.parse(atob(encoded));
+    session = hash;
+  } catch {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+
+  // If a specific session is provided, find it
+  if (body.session) {
+    if (body.session.length < 10) {
+      return c.json({ success: false, error: 'Session code too short' });
+    }
+
+    const sessions = await listSessions(c.env.DB);
+    const match = sessions.find((s) => s.hash.endsWith(body.session));
+    if (!match) {
+      return c.json({ success: false, error: 'Session not found' }, 404);
+    }
+    session = match.hash;
+  }
+
+  await deleteSession(c.env.DB, session);
+
+  return c.json({ success: true });
+});
+
 // Challenge API routes (public, no auth required)
 export const challengeRoutes = new Hono<{ Bindings: Env }>();
 
 // POST /:siteKey/challenge - Generate challenge
 challengeRoutes.post('/:siteKey/challenge', async (c) => {
   const siteKey = c.req.param('siteKey');
-  return generateChallenge(c.env, siteKey);
+  return generateChallenge(c.env, siteKey, c.req.raw);
 });
 
 // POST /:siteKey/redeem - Validate challenge
@@ -474,7 +575,7 @@ challengeRoutes.post('/:siteKey/redeem', async (c) => {
     return c.json({ error: 'Missing required fields' }, 400);
   }
 
-  return validateChallenge(c.env, siteKey, body);
+  return validateChallenge(c.env, siteKey, body, c.req.raw);
 });
 
 // Siteverify API (for external verification)
