@@ -519,6 +519,11 @@ button {
   font-weight: 500;
 }
 
+.time-select option {
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
 .time-select:focus {
   outline: none;
 }
