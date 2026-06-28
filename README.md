@@ -2,6 +2,8 @@
 
 一个运行在 Cloudflare Workers 上的轻量、现代验证码替代方案，采用工作量证明（proof-of-work）挑战。
 
+> 本项目移植自 [Cap](https://github.com/tiagozip/cap/)，Apache-2.0 协议。
+
 ## 特性
 
 - 🔐 **工作量证明挑战** - 无需视觉谜题，仅需计算工作
@@ -59,7 +61,7 @@ wrangler kv namespace create KV
 
 ```bash
 # 应用数据库架构
-wrangler d1 execute cap-db --file=./schema.sql
+wrangler d1 execute cap-db --file=./schema.sql --remote
 ```
 
 ### 4. 设置管理员密钥
@@ -150,7 +152,7 @@ fetch('/server/keys', {
 ## 客户端集成
 
 ```html
-<script src="https://your-worker.workers.dev/cap.js"></script>
+<script src="https://your-worker.workers.dev/assets/widget.js"></script>
 <script>
   const cap = new Cap({
     endpoint: 'https://your-worker.workers.dev',
@@ -194,3 +196,7 @@ npm run cf-typegen
 ## 许可证
 
 Apache-2.0
+
+## AI 相关
+
+本项目完全使用DeepSeek V4移植，可能存在不足

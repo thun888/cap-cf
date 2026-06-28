@@ -12,26 +12,24 @@
     "directory": "./public/",
     "binding": "ASSETS"
   },
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "your-kv-namespace-id",
-      "preview_id": "your-kv-preview-id"
-    }
-  ],
+  "kv_namespaces": [],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "cap-db",
-      "database_id": "your-d1-database-id",
-      "preview_database_id": "cap-db-preview"
+      "database_id": "653a9664-bfec-4cdf-9772-64ba1dfc9946"
     }
   ],
   "vars": {
-    "ADMIN_KEY": "",
     "CACHE_BACKEND": "d1",
-    "ENABLE_ASSETS_SERVER": "",
-    "WIDGET_VERSION": "3",
-    "WASM_VERSION": "0.1"
-  }
+    "ENABLE_ASSETS_SERVER": "true",
+    "WIDGET_VERSION": "0.1.56",
+    "WASM_VERSION": "0.07"
+  },
+	"routes": [
+		{
+		"pattern": "capjs.api.hzchu.top/*",
+		"zone_name": "757678.xyz"
+		}
+	],
 }
