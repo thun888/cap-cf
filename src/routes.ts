@@ -114,14 +114,14 @@ serverRoutes.post('/keys', async (c) => {
   const jwtSecret = randomBase64Url(32);
 
   const config: KeyConfig = {
-    difficulty: 4,
-    challengeCount: 80,
+    difficulty: body.difficulty ?? 4,
+    challengeCount: body.challengeCount ?? 80,
     saltSize: 32,
-    instrumentation: false,
-    obfuscationLevel: 3,
-    blockAutomatedBrowsers: false,
-    rsw: false,
-    rswT: 75000,
+    instrumentation: body.instrumentation ?? false,
+    obfuscationLevel: body.obfuscationLevel ?? 3,
+    blockAutomatedBrowsers: body.blockAutomatedBrowsers ?? false,
+    rsw: body.rsw ?? false,
+    rswT: body.rswT ?? 75000,
     ...(body.corsOrigins && Array.isArray(body.corsOrigins) && body.corsOrigins.length
       ? { corsOrigins: body.corsOrigins }
       : {}),

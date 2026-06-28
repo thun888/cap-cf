@@ -82,9 +82,9 @@ function prngFromHash(initialHash: number, length: number): string {
   let state = initialHash;
   let result = '';
   while (result.length < length) {
-    state ^= (state << 13) >>> 0;
+    state ^= state << 13;
     state ^= state >>> 17;
-    state ^= (state << 5) >>> 0;
+    state ^= state << 5;
     state >>>= 0;
     result += state.toString(16).padStart(8, '0');
   }

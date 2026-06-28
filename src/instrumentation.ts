@@ -79,30 +79,6 @@ const PRODUCTSUB_GECKO = '20030107';
 const SEQUENTUM_MARKER = 'Sequentum';
 
 // ── Build detection JS ────────────────────────────────────
-function buildInstrumentationJS(
-  id: string,
-  blockAutomatedBrowsers: boolean,
-  vars: string[],
-  initVals: number[],
-  blockChecksFn: string,
-  domHelperFn: string,
-): string {
-  const varDecls = vars.map((v, i) => {
-    const val = initVals[i];
-    return `var ${v}=${val};`;
-  }).join('');
-
-  const checkDecl = blockAutomatedBrowsers
-    ? `function _capBlock(){if(true){document.body.innerHTML='<h1 style=font-family:sans-serif;font-size:18px;margin:40px;text-align:center;color:#aaa>Access Blocked</h1>';document.title='Access Blocked';}}`
-    : '';
-
-  const submitFnName = `_capSubmit${rVar(6)}`;
-
-  return `(function(){${varDecls}${blockChecksFn}${domHelperFn}${checkDecl}` +
-    `function ${submitFnName}(){return JSON.stringify([${vars.join(',')}]);}` +
-    `var _capResult=${submitFnName}();_capResult;})();`;
-}
-
 // ── AES-GCM encrypt/decrypt ──────────────────────────────
 async function encryptGcm(plaintext: Record<string, unknown>, secret: string): Promise<string> {
   const iv = new Uint8Array(12);
@@ -152,7 +128,31 @@ async function decryptGcm(encrypted: string, secret: string): Promise<Record<str
   }
 }
 
-// ── Generate Instrumentation ──────────────────────────────
+// ── Compression (deflate-raw, async) ──────────────────────
+async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const cs = new CompressionStream('deflate-raw');
+  const writer = cs.writable.getWriter();
+  const reader = cs.readable.getReader();
+
+  writer.write(data);
+  writer.close();
+
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(totalLen);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
 export interface InstrumentationResult {
   instrumentation: string;
   id: string;
@@ -188,17 +188,50 @@ export async function generateInstrumentation(
     `function B(n,r,s){if(!n||n==r)return s%256;while(n.children.length>0)n.removeChild(n.lastElementChild);return B(n.parentNode,r,s+parseInt(n.innerText));}` +
     `var s=B(A(A(A(d,x),y),z),d,0);d.parentNode.removeChild(d);return s;}`;
 
-  let clientEqs = `${helperDecls}${vars[0]} = ${vars[0]} ^ (navigator.userAgent ? ${correctKey} : ${badKey});`;
+  // Variable declarations with initial values
+  const varDecls = vars.map((v, i) => `${v}=${initVals[i]}`).join(',');
 
-  // Mix in a few extra obfuscation steps
+  let clientEqs = `var ${varDecls};${helperDecls}${vars[0]} = ${vars[0]} ^ (navigator.userAgent ? ${correctKey} : ${badKey});`;
+  vals[0] = toInt32(vals[0] ^ correctKey);
+
+  // Mix-in operations (match original: simulate each step server-side)
   for (let i = 0; i < 20; i++) {
-    const a = fastRnd(0, 3), b = fastRnd(0, 3);
-    if (a === b) continue;
-    clientEqs += `${vars[a]}=${fnHelper}(${vars[a]},${vars[b]},${fastRnd(10, 250)});`;
+    const op = fastRnd(0, 3); // 0=NAND, 1=XOR, 2=fnHelper, 3=domHelper
+    const dest = fastRnd(0, 3);
+    let src1 = fastRnd(0, 3);
+    const src2 = fastRnd(0, 3);
+    const vD = vars[dest];
+    const vS1 = vars[src1];
+    const vS2 = vars[src2];
+
+    if (op === 0) {
+      // NAND: ~(a & b)
+      clientEqs += `${vD} = ~(${vD} & ${vS1});`;
+      vals[dest] = toInt32(~(vals[dest] & vals[src1]));
+    } else if (op === 1) {
+      // XOR: a ^ b
+      clientEqs += `${vD} = ${vD} ^ ${vS1};`;
+      vals[dest] = toInt32(vals[dest] ^ vals[src1]);
+    } else if (op === 2) {
+      // fnHelper: (b^a) | (c^b) where c=random
+      const randConst = fastRnd(10, 250);
+      clientEqs += `${vD} = ${fnHelper}(${vS1}, ${vS2}, ${randConst});`;
+      vals[dest] = toInt32((vals[src2] ^ vals[src1]) | (randConst ^ vals[src2]));
+    } else {
+      // domHelper: replaces dest with DOM sum of the three vars
+      clientEqs += `${vD} = ${domHelper}(${vars[0]}, ${vars[1]}, ${vars[2]});`;
+      vals[dest] = toInt32(domSumMock(vals[0], vals[1], vals[2]));
+    }
   }
 
-  // DOM sum call
+  // Final DOM sum call on vars[1]
   clientEqs += `${vars[1]}=${domHelper}(${vars[1]},${vars[2]},${vars[3]});`;
+  vals[1] = toInt32(domSumMock(vals[1], vals[2], vals[3]));
+
+  // Build _capBlock for automated browser detection
+  const checkDecl = blockAutomatedBrowsers
+    ? `function _capBlock(){document.body.innerHTML='<h1 style=font-family:sans-serif;font-size:18px;margin:40px;text-align:center;color:#aaa>Access Blocked</h1>';document.title='Access Blocked';}`
+    : '';
 
   // Build detection block check
   let blockBody = '';
@@ -212,25 +245,29 @@ export async function generateInstrumentation(
     blockBody = `;(function(){var n=(navigator.userAgent||'');var f=0;${uaCheck}if(f)_capBlock();${propChecks}${docChecks}${attrChecks}if(/PhantomJS|HeadlessChrome/.test(n))_capBlock();try{var c=document.createElement('canvas');var g=c.getContext('webgl');if(g){var d=g.getExtension('WEBGL_debug_renderer_info');if(d&&g.getParameter(d.UNMASKED_VENDOR_WEBGL)==='${WEBGL_VENDOR_MARKER}')_capBlock();}}catch(e){}})();`;
   }
 
-  const instrJS = buildInstrumentationJS(id, blockAutomatedBrowsers, vars, vals, blockBody, '');
-
-  // Compute expected vals
-  const expectedVals: number[] = [];
-  for (let i = 0; i < vars.length; i++) {
-    let v = initVals[i];
-    if (i === 0) v = toInt32(v ^ correctKey);
-    expectedVals.push(v);
+  // Append block checks and _capBlock to clientEqs
+  if (blockAutomatedBrowsers) {
+    clientEqs += checkDecl + blockBody;
   }
 
-  // The DOM sum affects vals[1]
-  const domSumResult = domSumMock(expectedVals[1], expectedVals[2], expectedVals[3]);
-  expectedVals[1] = domSumResult;
+  // Build the complete instrumentation script
+  const submitFnName = `_capSubmit${rVar(6)}`;
+  // Last expression must be the return value for eval() to capture it
+  const script = `${clientEqs}function ${submitFnName}(){return JSON.stringify([${vars.join(',')}]);};${submitFnName}();`;
+
+  // vals already contains server-simulated results from the mix-in loop
+  const expectedVals = vals.slice();
 
   const ttlMs = opts.ttlMs ?? 15 * 60 * 1000;
   const expires = Date.now() + ttlMs;
 
+  // Compress and base64-encode — widget expects deflate-compressed base64 blob
+  const encoder = new TextEncoder();
+  const compressed = await deflateRaw(encoder.encode(script));
+  const instrB64 = btoa(String.fromCharCode(...compressed));
+
   return {
-    instrumentation: instrJS,
+    instrumentation: instrB64,
     id,
     expectedVals,
     vars,
