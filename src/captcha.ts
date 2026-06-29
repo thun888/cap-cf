@@ -266,10 +266,6 @@ export async function generateChallenge(env: Env, siteKey: string, request: Requ
   const now = Date.now();
   const expires = now + CHALLENGE_TTL_MS;
 
-  // Track geo data (fire-and-forget)
-  const geo = collectGeo(request);
-  trackGeo(createCacheAdapter(env), siteKey, geo);
-
   // ── RSW mode ──
   if (config.rsw) {
     let rawT = Number(config.rswT) || DEFAULT_RSW_T;
@@ -420,6 +416,12 @@ export async function validateChallenge(
       await incrementMetric(cache, siteKey, 'latency_count', hourlyBucket(), 1);
     }
 
+    // Track geo data on successful redeem
+    if (request) {
+      const geo = collectGeo(request);
+      trackGeo(cache, siteKey, geo);
+    }
+
     return Response.json({ success: true, token: redeemToken, expires: tokenExpires });
   }
 
@@ -469,6 +471,7 @@ export async function validateChallenge(
 
     if ((body as any).instr_timeout === true) {
       await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incrementMetric(cache, siteKey, 'ratelimited', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Instrumentation timeout', reason: 'timeout' }, { status: 429 });
     }
 
