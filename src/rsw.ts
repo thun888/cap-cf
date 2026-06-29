@@ -98,8 +98,9 @@ export interface RswKeypair {
   bits: number;
 }
 
-// generation is expensive (~700ms for 2048-bit); persist the result.
-export function generateRswKeypair(bits = 2048): RswKeypair {
+// generation is expensive for large bit sizes; persist the result.
+// CPU time ≈ exponent for >1024 bit, keep default at 512 for Cloudflare Workers.
+export function generateRswKeypair(bits = 512): RswKeypair {
   if (bits % 2 !== 0) throw new Error('rsw bits must be even');
   const p = randomPrime(bits >> 1);
   let q = randomPrime(bits >> 1);

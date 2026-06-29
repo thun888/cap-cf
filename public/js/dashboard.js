@@ -2123,7 +2123,7 @@ async function saveMainConfig() {
   if (rsw) {
     btn.innerHTML = "Preparing RSW keypair…";
     const gen = await api("POST", "/settings/rsw/ensure");
-    if (!gen?.exists) {
+    if (!gen?.success) {
       showModal(
         "错误",
         '<div class="modal-body"><p>生成 RSW 密钥对失败，请稍后再试。</p></div>',

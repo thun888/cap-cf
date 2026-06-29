@@ -43,7 +43,7 @@ export function getRswStatus(): { ready: boolean; bits?: number } {
   return _keypair ? { ready: true, bits: _keypair.bits } : { ready: false };
 }
 
-export async function ensureRswKeypair(db: D1Database, bits = 2048): Promise<{ generated: boolean }> {
+export async function ensureRswKeypair(db: D1Database, bits = 512): Promise<{ generated: boolean }> {
   if (_keypair) return { generated: false };
 
   const kp = generateRswKeypair(bits);
