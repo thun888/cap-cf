@@ -225,13 +225,13 @@ function collectGeo(request: Request): GeoData {
 
 async function trackGeo(cache: CacheAdapter, siteKey: string, geo: GeoData, enabled = true): Promise<void> {
   if (!enabled) return;
-  const bucket = hourlyBucket();
   const ops: Promise<any>[] = [];
 
-  if (geo.country && geo.country !== 'UNKNOWN') {
+  // Use lowercase 'unknown' to match collectGeo() output
+  if (geo.country && geo.country !== 'unknown') {
     ops.push(incrementMetric(cache, siteKey, 'country', geo.country));
   }
-  if (geo.asn && geo.asn !== 'UNKNOWN') {
+  if (geo.asn && geo.asn !== 'unknown') {
     ops.push(incrementMetric(cache, siteKey, 'asn', geo.asn));
   }
   if (geo.platform) {
@@ -241,8 +241,14 @@ async function trackGeo(cache: CacheAdapter, siteKey: string, geo: GeoData, enab
     ops.push(incrementMetric(cache, siteKey, 'os', geo.os));
   }
 
-  // Fire-and-forget: don't block the challenge response
-  Promise.all(ops).catch(() => {});
+  if (ops.length === 0) return;
+
+  // Must await — Cloudflare Workers may cancel fire-and-forget promises after response is sent
+  try {
+    await Promise.all(ops);
+  } catch (err: any) {
+    console.error('[cap] trackGeo write failed:', err?.message || err);
+  }
 }
 
 // ── Public API ────────────────────────────────────────────
@@ -425,7 +431,7 @@ export async function validateChallenge(
     // Track geo data on successful redeem
     if (request) {
       const geo = collectGeo(request);
-      trackGeo(cache, siteKey, geo, metricsEnabled);
+      await trackGeo(cache, siteKey, geo, metricsEnabled);
     }
 
     return Response.json({ success: true, token: redeemToken, expires: tokenExpires });
@@ -521,7 +527,7 @@ export async function validateChallenge(
   // Track geo data on successful redeem
   if (request) {
     const geo = collectGeo(request);
-    trackGeo(cache, siteKey, geo, metricsEnabled);
+    await trackGeo(cache, siteKey, geo, metricsEnabled);
   }
 
   return Response.json({
