@@ -183,22 +183,20 @@ serverRoutes.get('/keys/:siteKey', async (c) => {
       endTime = now + 3600;
   }
 
-  const [verifiedH, failedH, ratelimitedH, latSumH, latCountH] = await Promise.all([
+  const [verifiedH, failedH, latSumH, latCountH] = await Promise.all([
     getMetrics(cache, siteKey, 'verified'),
     getMetrics(cache, siteKey, 'failed'),
-    getMetrics(cache, siteKey, 'ratelimited'),
     getMetrics(cache, siteKey, 'latency_sum'),
     getMetrics(cache, siteKey, 'latency_count'),
   ]);
 
   const totalVerified = sumSolutions(verifiedH, startTime, endTime);
   const totalFailed = sumSolutions(failedH, startTime, endTime);
-  const totalRateLimited = sumSolutions(ratelimitedH, startTime, endTime);
   const totalLatSum = sumSolutions(latSumH, startTime, endTime);
   const totalLatCount = sumSolutions(latCountH, startTime, endTime);
   const avgLatency = totalLatCount > 0 ? Math.round(totalLatSum / totalLatCount) : 0;
 
-  const chartData = buildChartData(verifiedH, failedH, ratelimitedH, startTime, endTime, bucketSize, chartDuration, now, day);
+  const chartData = buildChartData(verifiedH, failedH, startTime, endTime, bucketSize, chartDuration, now, day);
 
   return c.json({
     key: {
@@ -212,7 +210,6 @@ serverRoutes.get('/keys/:siteKey', async (c) => {
       verified: totalVerified,
       failed: totalFailed,
       avgLatency,
-      rateLimited: totalRateLimited,
     },
     chartData: {
       duration: chartDuration,
@@ -588,7 +585,6 @@ function sumSolutions(data: Record<string, number>, start: number, end?: number)
 function buildChartData(
   verified: Record<string, number>,
   failed: Record<string, number>,
-  ratelimited: Record<string, number>,
   startTime: number,
   endTime: number,
   bucketSize: number,
@@ -611,18 +607,16 @@ function buildChartData(
           challenges: (verified[b] || 0) + (failed[b] || 0),
           verified: verified[b] || 0,
           failed: failed[b] || 0,
-          rateLimited: ratelimited[b] || 0,
         });
       }
     } else {
-      const allBuckets = new Set([...Object.keys(verified), ...Object.keys(failed), ...Object.keys(ratelimited)]);
+      const allBuckets = new Set([...Object.keys(verified), ...Object.keys(failed)]);
       for (const b of [...allBuckets].map(Number).sort((a, c) => a - c)) {
         chartData.push({
           bucket: b,
           challenges: (verified[b] || 0) + (failed[b] || 0),
           verified: verified[b] || 0,
           failed: failed[b] || 0,
-          rateLimited: ratelimited[b] || 0,
         });
       }
     }
@@ -636,7 +630,6 @@ function buildChartData(
         challenges: (verified[b] || 0) + (failed[b] || 0),
         verified: verified[b] || 0,
         failed: failed[b] || 0,
-        rateLimited: ratelimited[b] || 0,
       });
     }
   }

@@ -223,7 +223,8 @@ function collectGeo(request: Request): GeoData {
   return { country, asn: asnLabel, platform, os };
 }
 
-async function trackGeo(cache: CacheAdapter, siteKey: string, geo: GeoData): Promise<void> {
+async function trackGeo(cache: CacheAdapter, siteKey: string, geo: GeoData, enabled = true): Promise<void> {
+  if (!enabled) return;
   const bucket = hourlyBucket();
   const ops: Promise<any>[] = [];
 
@@ -349,6 +350,11 @@ export async function validateChallenge(
   request?: Request,
 ): Promise<Response> {
   const cache = createCacheAdapter(env);
+  const metricsEnabled = env.DISABLE_METRICS !== 'true';
+  const incMetric = metricsEnabled
+    ? (metric: string, bucket: string, amount = 1) => incrementMetric(cache, siteKey, metric, bucket, amount)
+    : (_m?: string, _b?: string, _a?: number) => Promise.resolve(0);
+
   const keyData = await getKey(env.DB, siteKey);
   if (!keyData) {
     return Response.json({ error: 'Invalid site key' }, { status: 404 });
@@ -358,19 +364,19 @@ export async function validateChallenge(
   const payload = await jwtVerify(body.token, jwtSecret);
 
   if (!payload) {
-    await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+    await incMetric('failed', hourlyBucket());
     return Response.json({ error: 'Invalid challenge token' }, { status: 403 });
   }
 
   // Scope check
   if (payload.sk && payload.sk !== siteKey) {
-    await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+    await incMetric('failed', hourlyBucket());
     return Response.json({ error: 'Challenge token does not match site key' }, { status: 403 });
   }
 
   // Expiry check
   if (!payload.exp || payload.exp < Date.now()) {
-    await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+    await incMetric('failed', hourlyBucket());
     return Response.json({ error: 'Challenge expired' }, { status: 403 });
   }
 
@@ -381,13 +387,13 @@ export async function validateChallenge(
     const claimedY = (body as any).solutions?.[0] as string;
 
     if (!rsw || !expectedY || !claimedY) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ error: 'Invalid RSW solution' }, { status: 403 });
     }
 
     const { verifyRswSolution } = await import('./rsw');
     if (!verifyRswSolution(expectedY, claimedY)) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ error: 'Invalid solution' }, { status: 403 });
     }
 
@@ -396,7 +402,7 @@ export async function validateChallenge(
     const sigHex = Array.from(base64urlDecode(sig), (b) => b.toString(16).padStart(2, '0')).join('');
     const nonceClaimed = await claimNonce(cache, sigHex, 3600);
     if (!nonceClaimed) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ error: 'Challenge already redeemed' }, { status: 403 });
     }
 
@@ -407,19 +413,19 @@ export async function validateChallenge(
     const tokenExpires = Date.now() + TOKEN_TTL_MS;
 
     await storeToken(cache, redeemToken, tokenExpires, 7200);
-    await incrementMetric(cache, siteKey, 'verified', hourlyBucket());
+    await incMetric('verified', hourlyBucket());
 
     // Track latency
     if (payload.iat) {
       const latencyMs = Date.now() - payload.iat;
-      await incrementMetric(cache, siteKey, 'latency_sum', hourlyBucket(), latencyMs);
-      await incrementMetric(cache, siteKey, 'latency_count', hourlyBucket(), 1);
+      await incMetric('latency_sum', hourlyBucket(), latencyMs);
+      await incMetric('latency_count', hourlyBucket(), 1);
     }
 
     // Track geo data on successful redeem
     if (request) {
       const geo = collectGeo(request);
-      trackGeo(cache, siteKey, geo);
+      trackGeo(cache, siteKey, geo, metricsEnabled);
     }
 
     return Response.json({ success: true, token: redeemToken, expires: tokenExpires });
@@ -430,14 +436,14 @@ export async function validateChallenge(
 
   // Validate solutions array
   if (!Array.isArray(body.solutions) || body.solutions.length !== c) {
-    await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+    await incMetric('failed', hourlyBucket());
     return Response.json({ error: 'Invalid solutions' }, { status: 400 });
   }
 
   // Verify each solution
   for (let i = 0; i < c; i++) {
     if (typeof body.solutions[i] !== 'number') {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ error: 'Invalid solutions' }, { status: 400 });
     }
 
@@ -446,7 +452,7 @@ export async function validateChallenge(
     const targetPrefix = parseHexPrefix(derived.target);
 
     if (!powMatchesPrefix(hashBytes, targetPrefix)) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ error: 'Invalid solution' }, { status: 403 });
     }
   }
@@ -455,34 +461,33 @@ export async function validateChallenge(
   if ((payload as any).ei) {
     const instrMeta = await decryptGcm((payload as any).ei, keyData.jwtSecret);
     if (!instrMeta) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Blocked by instrumentation', reason: 'corrupted_instrumentation_data' }, { status: 403 });
     }
     if (instrMeta.expires && (instrMeta.expires as number) < Date.now()) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Blocked by instrumentation', reason: 'expired' }, { status: 403 });
     }
 
     const instrBody = (body as any).instr;
     if (instrMeta.blockAutomatedBrowsers && (body as any).instr_blocked === true) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Blocked by instrumentation', reason: 'automated_browser_detected' }, { status: 403 });
     }
 
     if ((body as any).instr_timeout === true) {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
-      await incrementMetric(cache, siteKey, 'ratelimited', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Instrumentation timeout', reason: 'timeout' }, { status: 429 });
     }
 
     if (instrBody) {
       const r = verifyInstrumentationResult(instrMeta as any, instrBody);
       if (!r.valid) {
-        await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+        await incMetric('failed', hourlyBucket());
         return Response.json({ instr_error: true, error: 'Blocked by instrumentation', reason: r.reason || 'failed_challenge' }, { status: 403 });
       }
     } else {
-      await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+      await incMetric('failed', hourlyBucket());
       return Response.json({ instr_error: true, error: 'Blocked by instrumentation', reason: 'missing_instrumentation_response' }, { status: 403 });
     }
   }
@@ -493,7 +498,7 @@ export async function validateChallenge(
 
   const nonceClaimed = await claimNonce(cache, sigHex, 3600);
   if (!nonceClaimed) {
-    await incrementMetric(cache, siteKey, 'failed', hourlyBucket());
+    await incMetric('failed', hourlyBucket());
     return Response.json({ error: 'Challenge already redeemed' }, { status: 403 });
   }
 
@@ -504,19 +509,19 @@ export async function validateChallenge(
   const tokenExpires = Date.now() + TOKEN_TTL_MS;
 
   await storeToken(cache, redeemToken, tokenExpires, 2 * 3600);
-  await incrementMetric(cache, siteKey, 'verified', hourlyBucket());
+  await incMetric('verified', hourlyBucket());
 
   // Track latency (ms from challenge issuance to redeem)
   if (payload.iat) {
     const latencyMs = Date.now() - payload.iat;
-    await incrementMetric(cache, siteKey, 'latency_sum', hourlyBucket(), latencyMs);
-    await incrementMetric(cache, siteKey, 'latency_count', hourlyBucket(), 1);
+    await incMetric('latency_sum', hourlyBucket(), latencyMs);
+    await incMetric('latency_count', hourlyBucket(), 1);
   }
 
   // Track geo data on successful redeem
   if (request) {
     const geo = collectGeo(request);
-    trackGeo(cache, siteKey, geo);
+    trackGeo(cache, siteKey, geo, metricsEnabled);
   }
 
   return Response.json({

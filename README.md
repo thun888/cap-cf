@@ -179,6 +179,7 @@ fetch('/server/keys', {
 |------|------|--------|------|
 | `ADMIN_KEY` | 是 | - | 管理员认证密钥（最少 12 个字符） |
 | `CACHE_BACKEND` | 否 | `d1` | 缓存后端：`d1` 或 `kv` |
+| `DISABLE_METRICS` | 否 | `false` | 禁用统计 |
 
 ## 开发
 

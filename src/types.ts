@@ -12,6 +12,7 @@ export interface Env {
   ENABLE_ASSETS_SERVER?: string;
   WIDGET_VERSION?: string;
   WASM_VERSION?: string;
+  DISABLE_METRICS?: string; // Set to 'true' to turn off all metrics writes
 }
 
 export interface KeyConfig {
@@ -49,7 +50,6 @@ export interface MetricsData {
   verified: number;
   failed: number;
   avgLatency: number;
-  rateLimited: number;
 }
 
 export interface ChartBucket {
@@ -57,7 +57,6 @@ export interface ChartBucket {
   challenges: number;
   verified: number;
   failed: number;
-  rateLimited: number;
 }
 
 export type ChartDuration = 'today' | 'yesterday' | 'last7days' | 'last28days' | 'last91days' | 'alltime';
