@@ -52,7 +52,7 @@ export async function handleAsset(
   if (!response) {
     const fetched = await fetch(url);
     if (!fetched.ok) {
-      return new Response(`Asset not found: ${fetched.status}`, { status: 502 });
+      return new Response(`Asset not found: ${fetched.status}`, { status: 404 });
     }
     response = new Response(fetched.body, {
       status: fetched.status,

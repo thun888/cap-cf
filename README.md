@@ -175,11 +175,30 @@ fetch('/server/keys', {
 
 ## 环境变量
 
+### 应用配置
+
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
-| `ADMIN_KEY` | 是 | - | 管理员认证密钥（最少 12 个字符） |
-| `CACHE_BACKEND` | 否 | `d1` | 缓存后端：`d1` 或 `kv` |
-| `DISABLE_METRICS` | 否 | `false` | 禁用统计 |
+| `ADMIN_KEY` | 是 | - | 管理员认证密钥，登录 `/auth/login` 及管理端点时必需（建议最少 12 位字符） |
+| `CACHE_BACKEND` | 否 | `d1` | 缓存后端类型，可选 `d1`（默认）或 `kv` |
+| `DISABLE_METRICS` | 否 | `false` | 设置为 `true` 时关闭所有指标写入，降低数据库压力 |
+| `ENABLE_ASSETS_SERVER` | 否 | `false` | 设置为 `true` 时启用 `/assets/*` 资源代理（用于 jsdelivr 资源回源） |
+| `WIDGET_VERSION` | 否 | - | `@cap.js/widget` 资源版本号，例如 `0.1.56`；启用资源代理时必需 |
+| `WASM_VERSION` | 否 | - | `@cap.js/wasm` 资源版本号，例如 `0.0.7`；启用资源代理时必需 |
+
+### Cloudflare 绑定
+
+| 绑定 | 必需 | 说明 |
+|------|------|------|
+| `DB` | 是 | D1 数据库绑定，用于持久化密钥、会话、IP 封锁、指标等数据 |
+| `KV` | 否 | KV 命名空间绑定，仅在 `CACHE_BACKEND=kv` 时使用 |
+
+### 变量说明
+
+- `ADMIN_KEY` 建议通过 `wrangler secret put ADMIN_KEY` 设置密钥，避免以明文写入 `wrangler.jsonc`。
+- 选择 `CACHE_BACKEND=kv` 时，需在 `wrangler.jsonc` 的 `kv_namespaces` 中配置 KV 命名空间，并确保 Worker 拥有该绑定。
+- `DISABLE_METRICS=true` 会跳过挑战数、验证数、失败数等统计写入，适合不需要分析面板的场景。
+- `ENABLE_ASSETS_SERVER` 启用后，`/assets/widget.js`、`/assets/floating.js`、`/assets/cap_wasm_bg.wasm`、`/assets/cap_wasm.js` 将从 jsdelivr CDN 回源并缓存在 Worker 边缘缓存中，需要同时配置 `WIDGET_VERSION` 与 `WASM_VERSION`。
 
 ## 开发
 
